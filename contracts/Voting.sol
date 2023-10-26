@@ -82,7 +82,7 @@ contract  Voting is Ownable(msg.sender) {
         require(currentSession.status == WorkflowStatus.VotingSessionStarted && !currentVote.hasVoted);
         currentSession.lesProposition[_ProposalId].voteCount += 1;
         currentVote.hasVoted = true;
-        emit Voted(msg.sender, _ProposalId)
+        emit Voted(msg.sender, _ProposalId);
         
     }
     function proposer(string calldata _description ) isWhiteList public {
