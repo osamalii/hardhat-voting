@@ -94,7 +94,7 @@ contract  Voting is Ownable(msg.sender) {
     }
     function restart(bool _publicProposal) private onlyOwner() {
 
-        Proposal[] memory newlesPropositions;
+        //Proposal[] storage newlesPropositions;
         
         //MappingVote m = new MappingVote();
        // m.setwhitelist(msg.sender,Voter(true,false,0));
@@ -102,7 +102,7 @@ contract  Voting is Ownable(msg.sender) {
         Session storage currentSession = lesSession.push();
         currentSession.status= WorkflowStatus.RegisteringVoters;
         currentSession.isPublicProposal=_publicProposal;
-        currentSession.lesProposition=newlesPropositions;
+        //currentSession.lesProposition=newlesPropositions;
         //Session memory currentSession = Session({status: WorkflowStatus.RegisteringVoters, isPublicProposal:_publicProposal,lesProposition: newlesPropositions,winner:Proposal(0,"",0,msg.sender)});
         //sessionIndex =  lesSession.push(currentSession);
     }
