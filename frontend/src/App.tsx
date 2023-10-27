@@ -2,6 +2,7 @@ import  { Component } from "react";
 import Voting from "./artifacts/contracts/Voting.sol/Voting.json";
 import getWeb3 from "./getWeb3.js";
 import "./App.css";
+import Proposal from "./component/Proposal/Proposal.tsx";
 
 interface AppState {
   web3: any; // Replace with the correct type for web3
@@ -97,7 +98,7 @@ class App extends Component<{}, AppState> {
                           {this.state.userAddress}
                         </p>
                         <div
-                          size="16"
+                          //size="16"
                           className="Web3Status__IconWrapper-sc-wwio5h-0 hqHdeW"
                         >
                           <div className="Identicon__StyledIdenticon-sc-1ssoit4-0 kTWLky">
@@ -139,6 +140,12 @@ class App extends Component<{}, AppState> {
                 </div>
               </nav>
             </header>
+            <div className="body">
+              <div className="Proposals">
+                
+                <Proposal/>
+              </div>
+            </div>
           </div>
         </div>
       </div>
