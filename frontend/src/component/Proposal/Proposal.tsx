@@ -1,15 +1,15 @@
 import { Component } from "react";
 import "./Proposal.css";
-import { SessionData } from "../structure/Structure";
+import { SessionData,WorkflowStatus } from "../structure/Structure";
 
 const Proposal =(data:any)=>{
- 
-
+    const d:SessionData=data.data;
+    console.log(d);
     return (
         <>
             <h1 style={{
                 backgroundColor:"red"
-            }}>{data.status} |||| 23 ans, l'oise ,pas de boite,aller sur toulouse , enfant, mariage</h1>
+            }}>| {WorkflowStatus[d.status]} |</h1>
         </>
     )
    

@@ -52,6 +52,7 @@ contract  Voting is Ownable(msg.sender) {
         bool isPublicProposal;
         Proposal[] lesProposition;
         Proposal winner;
+        bool isValid;
         //MappingVote whitelistAndBlacklist;
         mapping (address =>Voter)whitelist;
         mapping (address =>bool) blacklist;
@@ -60,7 +61,7 @@ contract  Voting is Ownable(msg.sender) {
     mapping (address =>Voter)currentWhitelist;
     mapping (address =>bool) currentBlacklist;
     //Session  currentSession;
-    Session[]  lesSession ;
+    Session[] lesSession ;
     Proposal[] newlesPropositions;
     uint sessionIndex;
 
@@ -71,7 +72,10 @@ contract  Voting is Ownable(msg.sender) {
     event ProposalRegistered(uint proposalId);
     event Voted (address voter, uint proposalId);
 
-
+    modifier valid(uint index){
+        require(lesSession[index].isValid,"No session, already set");
+        _;
+    }
     modifier isAutorized() {
         require(
             //lesSession[sessionIndex].whitelistAndBlacklist.getwhitelist(msg.sender).isRegistered && 
@@ -106,10 +110,11 @@ contract  Voting is Ownable(msg.sender) {
         //MappingVote m = new MappingVote();
        // m.setwhitelist(msg.sender,Voter(true,false,0));
         //Voting.Session memory currentSession = Session(WorkflowStatus.RegisteringVoters, _publicProposal, newlesPropositions,m,Proposal(0,"",0,msg.sender));  
-        Session storage currentSession = lesSession.push();
+        Session storage currentSession  = lesSession.push();
         currentSession.status= WorkflowStatus.RegisteringVoters;
         currentSession.isPublicProposal=_publicProposal;
         currentSession.lesProposition=newlesPropositions;
+        currentSession.isValid=true;
 
         //Session memory currentSession = Session({status: WorkflowStatus.RegisteringVoters, isPublicProposal:_publicProposal,lesProposition: newlesPropositions,winner:Proposal(0,"",0,msg.sender)});
         //sessionIndex =  lesSession.push(currentSession);
@@ -225,8 +230,23 @@ contract  Voting is Ownable(msg.sender) {
     function getWinner() public view  returns(Proposal memory){
         return lesSession[sessionIndex].winner;
     }
-    /*
-     function getAllSession() public view returns (Voting.Session[] memory){
-        return lesSession;
-    }*/
+    
+    function getIndexSession() public view  returns(uint){
+        return sessionIndex;
+    }
+    function getSession(uint index) public view valid(index) returns(SessionFormat memory){
+        
+        return SessionFormat(lesSession[index].status,lesSession[index].isPublicProposal,lesSession[index].lesProposition,lesSession[index].winner);
+    }
+
+    function getCurrentStatus(uint Index) public view returns ( WorkflowStatus){
+
+        return lesSession[Index].status;
+    }
+    struct SessionFormat{
+        WorkflowStatus status;
+        bool isPublicProposal;
+        Proposal[] lesProposition;
+        Proposal winner;
+    }
 }
