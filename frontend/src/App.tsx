@@ -2,7 +2,9 @@ import  { Component } from "react";
 import Voting from "./artifacts/contracts/Voting.sol/Voting.json";
 import getWeb3 from "./getWeb3.js";
 import "./App.css";
-import Proposal from "./component/Proposal/Proposal.tsx";
+import Proposal from "./component/Proposal/Proposal.js";
+
+import { SessionData,WorkflowStatus } from "./component/structure/Structure.js";
 
 interface AppState {
   web3: any; // Replace with the correct type for web3
@@ -20,6 +22,14 @@ class App extends Component<{}, AppState> {
     userAddress: null,
     isOwner: false,
   };
+  data:SessionData={
+    status: WorkflowStatus.RegisteringVoters,
+    isPublicProposal: false,
+    lesProposition:[], 
+    winner: null,
+    whitelist:null,
+    blacklist:null,
+  }
 
   async componentDidMount() {
     try {
@@ -143,8 +153,8 @@ class App extends Component<{}, AppState> {
             <div className="body">
               <div className="Proposals">
                 
-                <Proposal/>
-              </div>
+                <Proposal data={this.data}/>
+                </div>
             </div>
           </div>
         </div>

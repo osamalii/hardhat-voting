@@ -1,43 +1,17 @@
 import { Component } from "react";
 import "./Proposal.css";
-enum WorkflowStatus {
-    RegisteringVoters,
-    ProposalsRegistrationStarted,
-    ProposalsRegistrationEnded,
-       VotingSessionStarted,
-    VotingSessionEnded,
-    VotesTallied
-}
-interface Proposal {
-    proposalId:number;
-     description:string;
-     voteCount:number;
-     proposerPar: string;
-}
-interface Voter {
-    isRegistered:boolean;
-    hasVoted:boolean;
-    votedProposalId:number;
-}
-interface Sessiondata {
-    status: WorkflowStatus;
-    isPublicProposal: boolean;
-    lesProposition: Proposal[]; 
-    winner: Proposal;
-    whitelist:{adress:string,vote:Voter};
-    blacklist:{adress:string,is:boolean};
-  }
+import { SessionData } from "../structure/Structure";
 
-class Proposal extends Component<Sessiondata>{
+const Proposal =(data:any)=>{
  
 
-render() {
     return (
         <>
-
+            <h1 style={{
+                backgroundColor:"red"
+            }}>{data.status} |||| 23 ans, l'oise ,pas de boite,aller sur toulouse , enfant, mariage</h1>
         </>
     )
-}
    
 }
 export default Proposal;
