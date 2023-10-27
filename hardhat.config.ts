@@ -8,6 +8,9 @@ task("accounts", "Prints the list of accounts", async (args, hre) => {
   }
 });
 
+const INFURA_API_KEY = "2a95b3531d9542e2af242d271ae3cd9d";
+const SEPOLIA_PRIVATE_KEY = "8570e5ba96d96cf555e3172b3c793b90a5455062a7de7fcfa8b7b285f1688fce";
+
 // Go to https://hardhat.org/config/ to learn more
 
 /**
@@ -15,6 +18,10 @@ task("accounts", "Prints the list of accounts", async (args, hre) => {
  */
 const config: HardhatUserConfig = {
   networks: {
+    sepolia: {
+      url: `https://sepolia.infura.io/v3/${INFURA_API_KEY}`,
+      accounts: [SEPOLIA_PRIVATE_KEY]
+    },
     hardhat: {
       chainId: 1337,
       accounts: {
@@ -47,5 +54,6 @@ const config: HardhatUserConfig = {
   paths: {
     artifacts: './frontend/src/artifacts',
   },
+
 };
 export default config;

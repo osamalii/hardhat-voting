@@ -1,127 +1,69 @@
-// import {
-//   time,
-//   loadFixture,
-// } from "@nomicfoundation/hardhat-toolbox/network-helpers";
-// import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
-// import { expect } from "chai";
-// import { ethers } from "hardhat";
+import { expect } from "chai";
+import { ethers } from "hardhat";
+import { Signer, Contract, ContractFactory } from "ethers";
+import { Voting } from '../typechain-types/contracts'; // Import the contract interface
 
-// describe("Lock", function () {
-//   // We define a fixture to reuse the same setup in every test.
-//   // We use loadFixture to run this setup once, snapshot that state,
-//   // and reset Hardhat Network to that snapshot in every test.
-//   async function deployOneYearLockFixture() {
-//     const ONE_YEAR_IN_SECS = 365 * 24 * 60 * 60;
-//     const ONE_GWEI = 1_000_000_000;
+describe("Voting Contract", function () {
+  let owner: Signer;
+  let voter1: Signer;
+  let votingContract: Voting;
+  let votingContractFactory: ContractFactory;
 
-//     const lockedAmount = ONE_GWEI;
-//     const unlockTime = (await time.latest()) + ONE_YEAR_IN_SECS;
+  before(async function () {
+    [owner, voter1] = await ethers.getSigners();
 
-//     // Contracts are deployed using the first signer/account by default
-//     const [owner, otherAccount] = await ethers.getSigners();
+    votingContractFactory = await ethers.getContractFactory("Voting");
+    votingContract = await votingContractFactory.deploy();
+    await votingContract.deployed();
+  });
 
-//     const Lock = await ethers.getContractFactory("Lock");
-//     const lock = await Lock.deploy(unlockTime, { value: lockedAmount });
+  it("Should add a voter to the whitelist", async function () {
+    await votingContract.connect(owner).addVoter(voter1.getAddress());
+    expect(await votingContract.whitelist(voter1.getAddress())).to.be.true;
+  });
 
-//     return { lock, unlockTime, lockedAmount, owner, otherAccount };
-//   }
+  it("Should start a session", async function () {
+    await votingContract.connect(owner).startSession(true);
+    expect(await votingContract.getSession()).to.equal(1); // Adjust the expected value
+  });
 
-//   describe("Deployment", function () {
-//     it("Should set the right unlockTime", async function () {
-//       const { lock, unlockTime } = await loadFixture(deployOneYearLockFixture);
+  it("Should close proposition session", async function () {
+    await votingContract.connect(owner).closeProposition();
+    expect(await votingContract.getSession()).to.equal(2); // Adjust the expected value
+  });
 
-//       expect(await lock.unlockTime()).to.equal(unlockTime);
-//     });
+  it("Should open the vote session", async function () {
+    await votingContract.connect(owner).openVote();
+    expect(await votingContract.getSession()).to.equal(3); // Adjust the expected value
+  });
 
-//     it("Should set the right owner", async function () {
-//       const { lock, owner } = await loadFixture(deployOneYearLockFixture);
+  it("Should close the vote session", async function () {
+    await votingContract.connect(owner).closeVote();
+    expect(await votingContract.getSession()).to.equal(4); // Adjust the expected value
+  });
 
-//       expect(await lock.owner()).to.equal(owner.address);
-//     });
+  it("Should allow a registered voter to vote", async function () {
+    await votingContract.connect(voter1).setVote(0);
+    const voter = await votingContract.whitelist(await voter1.getAddress());
+    expect(voter.hasVoted).to.be.true;
+  });
 
-//     it("Should receive and store the funds to lock", async function () {
-//       const { lock, lockedAmount } = await loadFixture(
-//         deployOneYearLockFixture
-//       );
+  it("Should not allow a voter to vote twice", async function () {
+    await expect(votingContract.connect(voter1).setVote(1)).to.be.reverted;
+  });
 
-//       expect(await ethers.provider.getBalance(lock.target)).to.equal(
-//         lockedAmount
-//       );
-//     });
+  it("Should allow a registered voter to propose a new proposal", async function () {
+    await votingContract.connect(voter1).proposer("New Proposal");
+    expect(await votingContract.currentSession.lesProposition.length).to.equal(1);
+  });
 
-//     it("Should fail if the unlockTime is not in the future", async function () {
-//       // We don't use the fixture here because we want a different deployment
-//       const latestTime = await time.latest();
-//       const Lock = await ethers.getContractFactory("Lock");
-//       await expect(Lock.deploy(latestTime, { value: 1 })).to.be.revertedWith(
-//         "Unlock time should be in the future"
-//       );
-//     });
-//   });
+  it("Should not allow a non-registered voter to propose", async function () {
+    await expect(votingContract.connect(owner).proposer("New Proposal")).to.be.reverted;
+  });
 
-//   describe("Withdrawals", function () {
-//     describe("Validations", function () {
-//       it("Should revert with the right error if called too soon", async function () {
-//         const { lock } = await loadFixture(deployOneYearLockFixture);
-
-//         await expect(lock.withdraw()).to.be.revertedWith(
-//           "You can't withdraw yet"
-//         );
-//       });
-
-//       it("Should revert with the right error if called from another account", async function () {
-//         const { lock, unlockTime, otherAccount } = await loadFixture(
-//           deployOneYearLockFixture
-//         );
-
-//         // We can increase the time in Hardhat Network
-//         await time.increaseTo(unlockTime);
-
-//         // We use lock.connect() to send a transaction from another account
-//         await expect(lock.connect(otherAccount).withdraw()).to.be.revertedWith(
-//           "You aren't the owner"
-//         );
-//       });
-
-//       it("Shouldn't fail if the unlockTime has arrived and the owner calls it", async function () {
-//         const { lock, unlockTime } = await loadFixture(
-//           deployOneYearLockFixture
-//         );
-
-//         // Transactions are sent using the first signer by default
-//         await time.increaseTo(unlockTime);
-
-//         await expect(lock.withdraw()).not.to.be.reverted;
-//       });
-//     });
-
-//     describe("Events", function () {
-//       it("Should emit an event on withdrawals", async function () {
-//         const { lock, unlockTime, lockedAmount } = await loadFixture(
-//           deployOneYearLockFixture
-//         );
-
-//         await time.increaseTo(unlockTime);
-
-//         await expect(lock.withdraw())
-//           .to.emit(lock, "Withdrawal")
-//           .withArgs(lockedAmount, anyValue); // We accept any value as `when` arg
-//       });
-//     });
-
-//     describe("Transfers", function () {
-//       it("Should transfer the funds to the owner", async function () {
-//         const { lock, unlockTime, lockedAmount, owner } = await loadFixture(
-//           deployOneYearLockFixture
-//         );
-
-//         await time.increaseTo(unlockTime);
-
-//         await expect(lock.withdraw()).to.changeEtherBalances(
-//           [owner, lock],
-//           [lockedAmount, -lockedAmount]
-//         );
-//       });
-//     });
-//   });
-// });
+  it("Should calculate and announce the winner", async function () {
+    await votingContract.connect(owner).contabiliserVote();
+    const winner = await votingContract.getWinner();
+    expect(winner.description).to.equal("The Winning Proposal"); // Adjust the expected value
+  });
+});
