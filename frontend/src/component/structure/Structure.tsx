@@ -23,7 +23,4 @@ export interface  SessionData {
     isPublicProposal: boolean;
     lesProposition: Proposal[]; 
     winner: Proposal|null;
-    whitelist:{adress:string,vote:Voter}|null;
-    blacklist:{adress:string,is:boolean}|null;
   }
-  
