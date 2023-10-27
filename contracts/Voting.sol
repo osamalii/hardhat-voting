@@ -61,7 +61,7 @@ contract  Voting is Ownable(msg.sender) {
     mapping (address =>bool) currentBlacklist;
     //Session  currentSession;
     Session[]  lesSession ;
-
+    Proposal[] newlesPropositions;
     uint sessionIndex;
 
     event VoterRegistered(address voterAddress);
@@ -75,11 +75,17 @@ contract  Voting is Ownable(msg.sender) {
     modifier isAutorized() {
         require(
             //lesSession[sessionIndex].whitelistAndBlacklist.getwhitelist(msg.sender).isRegistered && 
-            lesSession[sessionIndex].whitelist[msg.sender].isRegistered && 
+           ( lesSession[sessionIndex].whitelist[msg.sender].isRegistered && 
             //!lesSession[sessionIndex].whitelistAndBlacklist.getblacklist(msg.sender) ,
-            !lesSession[sessionIndex].blacklist[msg.sender] ,
+            !lesSession[sessionIndex].blacklist[msg.sender] )||(owner()==msg.sender) ,
             "not whitelisted or blacklisted"
         );
+        _;
+    }
+    modifier canPropose(){
+            require(
+                    lesSession[sessionIndex].isPublicProposal || owner() == msg.sender
+            );
         _;
     }
 
@@ -91,18 +97,20 @@ contract  Voting is Ownable(msg.sender) {
 
     function startSession(bool _publicProposal) public onlyOwner {
         restart(_publicProposal);
+        lesSession[sessionIndex].whitelist[msg.sender]=Voter(true,false,0);
     }
-    function restart(bool _publicProposal) private onlyOwner() {
+    function restart(bool _publicProposal) private {
 
-        //Proposal[] storage newlesPropositions;
         
+        delete newlesPropositions;
         //MappingVote m = new MappingVote();
        // m.setwhitelist(msg.sender,Voter(true,false,0));
         //Voting.Session memory currentSession = Session(WorkflowStatus.RegisteringVoters, _publicProposal, newlesPropositions,m,Proposal(0,"",0,msg.sender));  
         Session storage currentSession = lesSession.push();
         currentSession.status= WorkflowStatus.RegisteringVoters;
         currentSession.isPublicProposal=_publicProposal;
-        //currentSession.lesProposition=newlesPropositions;
+        currentSession.lesProposition=newlesPropositions;
+
         //Session memory currentSession = Session({status: WorkflowStatus.RegisteringVoters, isPublicProposal:_publicProposal,lesProposition: newlesPropositions,winner:Proposal(0,"",0,msg.sender)});
         //sessionIndex =  lesSession.push(currentSession);
     }
@@ -128,9 +136,8 @@ contract  Voting is Ownable(msg.sender) {
         emit WorkflowStatusChange(lesSession[sessionIndex].status, WorkflowStatus.ProposalsRegistrationStarted);   
         lesSession[sessionIndex].status = WorkflowStatus.ProposalsRegistrationStarted;
     }
-    function AddProposition(string calldata _description ) isAutorized() public {
+    function AddProposition(string calldata _description ) isAutorized() canPropose public {
 
-        if(lesSession[sessionIndex].isPublicProposal || owner() == msg.sender){
             require(
                 lesSession[sessionIndex].status == WorkflowStatus.ProposalsRegistrationStarted,
                 "The Status not good"
@@ -140,7 +147,7 @@ contract  Voting is Ownable(msg.sender) {
             
             lesSession[sessionIndex].lesProposition.push(newPorosal);
             emit ProposalRegistered(lesSession[sessionIndex].lesProposition.length - 1);
-        }
+        
     }
     
     function closeProposition() public onlyOwner {
