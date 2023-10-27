@@ -99,6 +99,10 @@ contract  Voting is Ownable(msg.sender) {
         _;
     }
 
+    function getSessionStatus() public view returns (WorkflowStatus) {
+        return lesSession[sessionIndex].status;
+    }
+
     function startSession(bool _publicProposal) public onlyOwner {
         restart(_publicProposal);
         lesSession[sessionIndex].whitelist[msg.sender]=Voter(true,false,0);
