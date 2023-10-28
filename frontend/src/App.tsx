@@ -122,8 +122,9 @@ class App extends Component<{}, AppState> {
 
       const instance = new web3.eth.Contract(
         Voting.abi,
-        '0xCa8D976D9f37de1c30CCF1464B989bfEd176b1Ab'
+        '0xe747C57AC06a5E5A676E8907FB7Bc685cD72B96E'
       );
+      console.log(instance);
 
       console.log("instance", instance);
 
