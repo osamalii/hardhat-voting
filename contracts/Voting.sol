@@ -1,37 +1,20 @@
 // SPDX-License-Identifier: GPL-3.0
-
 pragma solidity >=0.8.2 <0.9.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
- struct Voter {
+
+contract CustomOwnable is Ownable {
+    constructor() Ownable(msg.sender) {
+        // The constructor for CustomOwnable sets the initial owner to msg.sender.
+    }
+}
+contract Voting is CustomOwnable {
+    struct Voter {
         bool isRegistered;
         bool hasVoted;
         uint votedProposalId;
     }
-/*contract MappingVote{
-        mapping (address=>Voter) public whitelist;
-        mapping (address=>bool) public blacklist;
-        function getwhitelist(address _address) public view returns(Voter memory )  {
-            return whitelist[_address];
-        }
-        function setwhitelist(address _address,Voter memory _vote) public  {
-            whitelist[_address]=_vote;
-        }
 
-        function getblacklist(address _address) public view returns(bool)  {
-            return blacklist[_address];
-        }
-        
-        function setblacklist(address _address,bool _is) public  {
-            blacklist[_address]=_is;
-        }
-
-}*/
-
-contract  Voting is Ownable(msg.sender) {
-
-   
-    
     struct Proposal {
         uint proposalId;
         string description;
@@ -41,242 +24,196 @@ contract  Voting is Ownable(msg.sender) {
 
     enum WorkflowStatus {
         RegisteringVoters,
-	    ProposalsRegistrationStarted,
+        ProposalsRegistrationStarted,
         ProposalsRegistrationEnded,
-       	VotingSessionStarted,
-	    VotingSessionEnded,
-	    VotesTallied
+        VotingSessionStarted,
+        VotingSessionEnded,
+        VotesTallied
     }
+
     struct Session {
         WorkflowStatus status;
         bool isPublicProposal;
         Proposal[] lesProposition;
         Proposal winner;
         bool isValid;
-        //MappingVote whitelistAndBlacklist;
-        mapping (address =>Voter)whitelist;
-        mapping (address =>bool) blacklist;
+        mapping(address => Voter) whitelist;
+        mapping(address => bool) blacklist;
     }
 
-    mapping (address =>Voter)currentWhitelist;
-    mapping (address =>bool) currentBlacklist;
-    //Session  currentSession;
-    Session[] lesSession ;
-    Proposal[] newlesPropositions;
-    uint sessionIndex=0;
+    Session[] public lesSession;
+    Proposal[] public newlesPropositions;
+    uint sessionIndex = 0;
 
     event VoterRegistered(address voterAddress);
     event VoterUnRegistered(address voterAddress);
     event VoterBlacklisted(address voterAddress);
     event WorkflowStatusChange(WorkflowStatus previousStatus, WorkflowStatus newStatus);
     event ProposalRegistered(uint proposalId);
-    event Voted (address voter, uint proposalId);
+    event Voted(address voter, uint proposalId);
 
-    modifier valid(uint index){
-        require(lesSession[index].isValid,"No session, already set");
+    modifier valid(uint index) {
+        require(index < lesSession.length, "Session index out of bounds");
+        require(lesSession[index].isValid, "No session, already set");
         _;
     }
-    modifier isAutorized() {
+
+    modifier isAuthorized() {
         require(
-            //lesSession[sessionIndex].whitelistAndBlacklist.getwhitelist(msg.sender).isRegistered && 
-           ( lesSession[sessionIndex].whitelist[msg.sender].isRegistered && 
-            //!lesSession[sessionIndex].whitelistAndBlacklist.getblacklist(msg.sender) ,
-            !lesSession[sessionIndex].blacklist[msg.sender] )||(owner()==msg.sender) ,
-            "not whitelisted or blacklisted"
+            (lesSession[sessionIndex].whitelist[msg.sender].isRegistered &&
+            !lesSession[sessionIndex].blacklist[msg.sender]) || (owner() == msg.sender),
+            "Not whitelisted or blacklisted"
         );
         _;
     }
-    modifier canPropose(){
-            require(
-                    lesSession[sessionIndex].isPublicProposal || owner() == msg.sender
-            );
+
+    modifier canPropose() {
+        require(
+            lesSession[sessionIndex].isPublicProposal || owner() == msg.sender,
+            "Cannot propose in this session"
+        );
         _;
     }
 
-     modifier isBlacklisted(address _address) {
-       // require( lesSession[sessionIndex].whitelistAndBlacklist.getblacklist(msg.sender) ,"is blacklisted");
-       require( lesSession[sessionIndex].blacklist[msg.sender],"is blacklisted");
-        _;
+    constructor() {
+        restart(true); // Start the initial session with public proposals.
     }
+    
+function startSession(bool _publicProposal) public onlyOwner returns (uint, SessionFormat memory) {
+    restart(_publicProposal);
+    uint t = sessionIndex;
+    return (t, SessionFormat(lesSession[sessionIndex].status, lesSession[sessionIndex].isPublicProposal, lesSession[sessionIndex].lesProposition, lesSession[sessionIndex].winner));
+}
 
     function getSessionStatus() public view returns (WorkflowStatus) {
         return lesSession[sessionIndex].status;
     }
 
-    function startSession(bool _publicProposal) public onlyOwner returns (uint ,SessionFormat memory){
-        restart(_publicProposal);
-       // lesSession[sessionIndex].whitelist[msg.sender]=Voter(true,false,0);
-       uint t=sessionIndex;
-        return (t, SessionFormat(lesSession[sessionIndex].status,lesSession[sessionIndex].isPublicProposal,lesSession[sessionIndex].lesProposition,lesSession[sessionIndex].winner));
-    }
     function restart(bool _publicProposal) private {
-
-        
         delete newlesPropositions;
-        //MappingVote m = new MappingVote();
-       // m.setwhitelist(msg.sender,Voter(true,false,0));
-        //Voting.Session memory currentSession = Session(WorkflowStatus.RegisteringVoters, _publicProposal, newlesPropositions,m,Proposal(0,"",0,msg.sender));  
-       
-
-        // 2 try
-        uint256 idx = lesSession.length;
+        uint idx = lesSession.length;
         lesSession.push();
         Session storage currentSession = lesSession[idx];
-        currentSession.status= WorkflowStatus.RegisteringVoters;
-        currentSession.isPublicProposal=_publicProposal;
-        currentSession.lesProposition=newlesPropositions;
-        currentSession.isValid=true;
-        currentSession.whitelist[msg.sender]=Voter(true,false,0);
-
-
-       /* 1 try
-        Session storage currentSession=lesSession.push();
-
-        currentSession.status= WorkflowStatus.RegisteringVoters;
-        currentSession.isPublicProposal=_publicProposal;
-        currentSession.lesProposition=newlesPropositions;
-        currentSession.isValid=true;
-
-        lesSession.push(currentSession);
-        sessionIndex =lesSession.length -1;
-        */
-        
-        
-        //Session memory currentSession = Session({status: WorkflowStatus.RegisteringVoters, isPublicProposal:_publicProposal,lesProposition: newlesPropositions,winner:Proposal(0,"",0,msg.sender)});
-        //sessionIndex =  lesSession.push(currentSession);
+        currentSession.status = WorkflowStatus.RegisteringVoters;
+        currentSession.isPublicProposal = _publicProposal;
+        currentSession.lesProposition = newlesPropositions;
+        currentSession.isValid = true;
+        currentSession.whitelist[msg.sender] = Voter(true, false, 0);
     }
 
-    function addVoter(address _address) public onlyOwner() isBlacklisted(_address){
+    function openProposalRegistration() public onlyOwner {
+        //require(lesSession[sessionIndex].status == WorkflowStatus.ProposalsRegistrationStarted, "The status is not ProposalsRegistrationStarted");
+    
+        emit WorkflowStatusChange(lesSession[sessionIndex].status, WorkflowStatus.ProposalsRegistrationStarted);
+        lesSession[sessionIndex].status = WorkflowStatus.ProposalsRegistrationStarted;
+    }
+
+
+    function addVoter(address _address) public onlyOwner {
         require(!lesSession[sessionIndex].whitelist[_address].isRegistered);
-        lesSession[sessionIndex].whitelist[_address] = Voter(true,false,0);
+        lesSession[sessionIndex].whitelist[_address] = Voter(true, false, 0);
         emit VoterRegistered(_address);
     }
-    function removeVoter(address _address) public onlyOwner() {
-        require(!lesSession[sessionIndex].whitelist[_address].isRegistered);
-        lesSession[sessionIndex].whitelist[_address] = Voter(false,false,0);
-        emit VoterUnRegistered(_address);
 
+    function removeVoter(address _address) public onlyOwner {
+        require(lesSession[sessionIndex].whitelist[_address].isRegistered);
+        lesSession[sessionIndex].whitelist[_address] = Voter(false, false, 0);
+        emit VoterUnRegistered(_address);
     }
-    function blacklistVoter(address _address) public onlyOwner(){
-        lesSession[sessionIndex].whitelist[_address].isRegistered=false;
+
+    function blacklistVoter(address _address) public onlyOwner() {
+        lesSession[sessionIndex].whitelist[_address].isRegistered = false;
         lesSession[sessionIndex].blacklist[_address] = true;
         emit VoterBlacklisted(_address);
     }
-    function CloseRegisteringVoters() public onlyOwner{
-        
-        emit WorkflowStatusChange(lesSession[sessionIndex].status, WorkflowStatus.ProposalsRegistrationStarted);   
+
+    function closeRegisteringVoters() public onlyOwner {
+        emit WorkflowStatusChange(lesSession[sessionIndex].status, WorkflowStatus.ProposalsRegistrationStarted);
         lesSession[sessionIndex].status = WorkflowStatus.ProposalsRegistrationStarted;
     }
-    function AddProposition(string calldata _description ) isAutorized() canPropose public {
 
-            require(
-                lesSession[sessionIndex].status == WorkflowStatus.ProposalsRegistrationStarted,
-                "The Status not good"
-            );
-            uint lenPropositions=lesSession[sessionIndex].lesProposition.length;
-            Proposal memory newPorosal = Proposal(lenPropositions+1,_description, 0,msg.sender);
-            
-            lesSession[sessionIndex].lesProposition.push(newPorosal);
-            emit ProposalRegistered(lesSession[sessionIndex].lesProposition.length - 1);
-        
-    }
-    
-    function closeProposition() public onlyOwner {
-        require(
-            lesSession[sessionIndex].status == WorkflowStatus.ProposalsRegistrationStarted, 
-            "The Status not good"
-        );
-        
-        uint lenPropositions=lesSession[sessionIndex].lesProposition.length;
-        Proposal memory newPorosal = Proposal(lenPropositions+1,"Vote Blanc", 0,msg.sender);
-        lesSession[sessionIndex].lesProposition.push(newPorosal);
-        
-        emit WorkflowStatusChange(lesSession[sessionIndex].status, WorkflowStatus.ProposalsRegistrationEnded); 
-        lesSession[sessionIndex].status = WorkflowStatus.ProposalsRegistrationEnded;  
+    function addProposal(string calldata _description) isAuthorized() canPropose public {
+        require(lesSession[sessionIndex].status == WorkflowStatus.ProposalsRegistrationStarted, "The status is not valid");
+        uint lenPropositions = lesSession[sessionIndex].lesProposition.length;
+        Proposal memory newProposal = Proposal(lenPropositions + 1, _description, 0, msg.sender);
+        lesSession[sessionIndex].lesProposition.push(newProposal);
+        emit ProposalRegistered(lesSession[sessionIndex].lesProposition.length - 1);
     }
 
-    function openVote() public onlyOwner  {
-        require(
-            lesSession[sessionIndex].status == WorkflowStatus.ProposalsRegistrationEnded, 
-            "The Status not good"
-        );
-        
-        emit WorkflowStatusChange(lesSession[sessionIndex].status, WorkflowStatus.VotingSessionStarted);  
-        lesSession[sessionIndex].status = WorkflowStatus.VotingSessionStarted;   
+    function closeProposal() public onlyOwner {
+        require(lesSession[sessionIndex].status == WorkflowStatus.ProposalsRegistrationStarted, "The status is not valid");
+        uint lenPropositions = lesSession[sessionIndex].lesProposition.length;
+        Proposal memory newProposal = Proposal(lenPropositions + 1, "Vote Blanc", 0, msg.sender);
+        lesSession[sessionIndex].lesProposition.push(newProposal);
+        emit WorkflowStatusChange(lesSession[sessionIndex].status, WorkflowStatus.ProposalsRegistrationEnded);
+        lesSession[sessionIndex].status = WorkflowStatus.ProposalsRegistrationEnded;
     }
-   
-    function addVote(uint _ProposalId) isAutorized() public{
+
+    function openVote() public onlyOwner {
+        require(lesSession[sessionIndex].status == WorkflowStatus.ProposalsRegistrationEnded, "The status is not valid");
+        emit WorkflowStatusChange(lesSession[sessionIndex].status, WorkflowStatus.VotingSessionStarted);
+        lesSession[sessionIndex].status = WorkflowStatus.VotingSessionStarted;
+    }
+
+    function addVote(uint _proposalId) isAuthorized() public {
         require(!lesSession[sessionIndex].whitelist[msg.sender].hasVoted && lesSession[sessionIndex].status == WorkflowStatus.VotingSessionStarted);
-        lesSession[sessionIndex].lesProposition[_ProposalId-1].voteCount += 1;
+        require(_proposalId > 0 && _proposalId <= lesSession[sessionIndex].lesProposition.length, "Invalid proposal ID");
+        lesSession[sessionIndex].lesProposition[_proposalId - 1].voteCount += 1;
         lesSession[sessionIndex].whitelist[msg.sender].hasVoted = true;
-        emit Voted(msg.sender, _ProposalId);
+        lesSession[sessionIndex].whitelist[msg.sender].votedProposalId = _proposalId;
+        emit Voted(msg.sender, _proposalId);
     }
-   
-    function closeVote() public onlyOwner  {
-        require(
-            lesSession[sessionIndex].status == WorkflowStatus.VotingSessionStarted,
-            "The Status not good "
-        );
+
+    function closeVote() public onlyOwner {
+        require(lesSession[sessionIndex].status == WorkflowStatus.VotingSessionStarted, "The status is not valid");
         emit WorkflowStatusChange(lesSession[sessionIndex].status, WorkflowStatus.VotingSessionEnded);
         lesSession[sessionIndex].status = WorkflowStatus.VotingSessionEnded;
     }
 
-    function contabiliserVote() public onlyOwner {
-        uint i=1;
-        uint max =lesSession[sessionIndex].lesProposition[0].voteCount;
-        Proposal storage winner=lesSession[sessionIndex].lesProposition[0];
-        for (i; i < lesSession[sessionIndex].lesProposition.length-1 ; i++) {
-           if(max > lesSession[sessionIndex].lesProposition[i].voteCount){
-                max=lesSession[sessionIndex].lesProposition[i].voteCount;
-                winner=lesSession[sessionIndex].lesProposition[i];
-           }
+    function countVotes() public onlyOwner {
+        require(lesSession[sessionIndex].status == WorkflowStatus.VotingSessionEnded, "The status is not valid");
+        uint max = lesSession[sessionIndex].lesProposition[0].voteCount;
+        Proposal storage winner = lesSession[sessionIndex].lesProposition[0];
+        for (uint i = 1; i < lesSession[sessionIndex].lesProposition.length; i++) {
+            if (max < lesSession[sessionIndex].lesProposition[i].voteCount) {
+                max = lesSession[sessionIndex].lesProposition[i].voteCount;
+                winner = lesSession[sessionIndex].lesProposition[i];
+            }
         }
-        lesSession[sessionIndex].winner=winner;
-        
+        lesSession[sessionIndex].winner = winner;
+        emit WorkflowStatusChange(lesSession[sessionIndex].status, WorkflowStatus.VotesTallied);
+        lesSession[sessionIndex].status = WorkflowStatus.VotesTallied;
     }
-    
-    /*function getSession() public view returns (Voting.Session calldata){
-        return lesSession[sessionIndex];
-    }
-    
-    
-    
-        WorkflowStatus status;
-        bool isPublicProposal;
-        Proposal[] lesProposition;
-        Proposal winner;
-        mapping (address =>Voter)whitelist;
-        mapping (address =>bool) blacklist;
 
-    */
-    function getSessionProposal() public view returns (Proposal[] memory){
+    function getSessionProposal() public view returns (Proposal[] memory) {
         return lesSession[sessionIndex].lesProposition;
     }
-   
-    function getWinner() public view  returns(Proposal memory){
+
+    function getWinner() public view returns (Proposal memory) {
         return lesSession[sessionIndex].winner;
     }
-    
-    function getIndexSession() public view  returns(uint){
+
+    function getIndexSession() public view returns (uint) {
         return sessionIndex;
     }
-    function getSession(uint index) public view valid(index) returns(SessionFormat memory){
-        
-        return SessionFormat(lesSession[index].status,lesSession[index].isPublicProposal,lesSession[index].lesProposition,lesSession[index].winner);
-    }
-    function getCurrentSession() public view returns(SessionFormat memory){
-        
-        return SessionFormat(lesSession[sessionIndex].status,lesSession[sessionIndex].isPublicProposal,lesSession[sessionIndex].lesProposition,lesSession[sessionIndex].winner);
-    }
 
-    function getCurrentStatus(uint Index) public view returns ( WorkflowStatus){
-
-        return lesSession[Index].status;
-    }
-    struct SessionFormat{
+    struct SessionFormat {
         WorkflowStatus status;
         bool isPublicProposal;
         Proposal[] lesProposition;
         Proposal winner;
+    }
+
+    function getSession(uint index) public view valid(index) returns (SessionFormat memory) {
+        return SessionFormat(lesSession[index].status, lesSession[index].isPublicProposal, lesSession[index].lesProposition, lesSession[index].winner);
+    }
+
+    function getCurrentSession() public view returns (SessionFormat memory) {
+        return SessionFormat(lesSession[sessionIndex].status, lesSession[sessionIndex].isPublicProposal, lesSession[sessionIndex].lesProposition, lesSession[sessionIndex].winner);
+    }
+
+    function getCurrentStatus(uint Index) public view returns (WorkflowStatus) {
+        require(Index < lesSession.length, "Session index out of bounds");
+        return lesSession[Index].status;
     }
 }
