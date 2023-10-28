@@ -63,7 +63,7 @@ contract  Voting is Ownable(msg.sender) {
     //Session  currentSession;
     Session[] lesSession ;
     Proposal[] newlesPropositions;
-    uint sessionIndex;
+    uint sessionIndex=0;
 
     event VoterRegistered(address voterAddress);
     event VoterUnRegistered(address voterAddress);
@@ -103,9 +103,11 @@ contract  Voting is Ownable(msg.sender) {
         return lesSession[sessionIndex].status;
     }
 
-    function startSession(bool _publicProposal) public onlyOwner {
+    function startSession(bool _publicProposal) public onlyOwner returns (uint ,SessionFormat memory){
         restart(_publicProposal);
-        lesSession[sessionIndex].whitelist[msg.sender]=Voter(true,false,0);
+       // lesSession[sessionIndex].whitelist[msg.sender]=Voter(true,false,0);
+       uint t=sessionIndex;
+        return (t, SessionFormat(lesSession[sessionIndex].status,lesSession[sessionIndex].isPublicProposal,lesSession[sessionIndex].lesProposition,lesSession[sessionIndex].winner));
     }
     function restart(bool _publicProposal) private {
 
@@ -114,12 +116,32 @@ contract  Voting is Ownable(msg.sender) {
         //MappingVote m = new MappingVote();
        // m.setwhitelist(msg.sender,Voter(true,false,0));
         //Voting.Session memory currentSession = Session(WorkflowStatus.RegisteringVoters, _publicProposal, newlesPropositions,m,Proposal(0,"",0,msg.sender));  
-        Session storage currentSession  = lesSession.push();
+       
+
+        // 2 try
+        uint256 idx = lesSession.length;
+        lesSession.push();
+        Session storage currentSession = lesSession[idx];
+        currentSession.status= WorkflowStatus.RegisteringVoters;
+        currentSession.isPublicProposal=_publicProposal;
+        currentSession.lesProposition=newlesPropositions;
+        currentSession.isValid=true;
+        currentSession.whitelist[msg.sender]=Voter(true,false,0);
+
+
+       /* 1 try
+        Session storage currentSession=lesSession.push();
+
         currentSession.status= WorkflowStatus.RegisteringVoters;
         currentSession.isPublicProposal=_publicProposal;
         currentSession.lesProposition=newlesPropositions;
         currentSession.isValid=true;
 
+        lesSession.push(currentSession);
+        sessionIndex =lesSession.length -1;
+        */
+        
+        
         //Session memory currentSession = Session({status: WorkflowStatus.RegisteringVoters, isPublicProposal:_publicProposal,lesProposition: newlesPropositions,winner:Proposal(0,"",0,msg.sender)});
         //sessionIndex =  lesSession.push(currentSession);
     }
@@ -241,6 +263,10 @@ contract  Voting is Ownable(msg.sender) {
     function getSession(uint index) public view valid(index) returns(SessionFormat memory){
         
         return SessionFormat(lesSession[index].status,lesSession[index].isPublicProposal,lesSession[index].lesProposition,lesSession[index].winner);
+    }
+    function getCurrentSession() public view returns(SessionFormat memory){
+        
+        return SessionFormat(lesSession[sessionIndex].status,lesSession[sessionIndex].isPublicProposal,lesSession[sessionIndex].lesProposition,lesSession[sessionIndex].winner);
     }
 
     function getCurrentStatus(uint Index) public view returns ( WorkflowStatus){
