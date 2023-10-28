@@ -1,12 +1,26 @@
-import React, { Component, ChangeEvent } from "react";
+import { Component, ChangeEvent } from "react";
 import Voting from "./artifacts/contracts/Voting.sol/Voting.json";
 import getWeb3 from "./getWeb3";
-import { Container, AppBar, Toolbar, Typography, Checkbox, TextField, Button, Paper, Grid, FormControlLabel } from "@mui/material";
-import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import {
+  Container,
+  AppBar,
+  Toolbar,
+  Typography,
+  Checkbox,
+  TextField,
+  Button,
+  Paper,
+  Grid,
+  FormControlLabel,
+  Alert,
+} from "@mui/material";
+import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 
 const styles = {
   root: {
-    flexGrow: 1,
+    display: "flex",
+    flexDirection: "column",
+    minHeight: "100vh",
   },
   brand: {
     flexGrow: 1,
@@ -18,7 +32,9 @@ const styles = {
     fontSize: "16px",
   },
   section: {
+    flex: 1,
     marginTop: "20px",
+    paddingBottom: "50px",
   },
   container: {
     padding: "20px",
@@ -27,8 +43,10 @@ const styles = {
   },
   footer: {
     textAlign: "center",
-    padding: "10px",
+    padding: "20px",
     fontSize: "14px",
+    background: "linear-gradient(45deg, #1976d2 30%, #2196F3 90%)",
+    marginTop: "auto", // Push the footer to the bottom
   },
   header: {
     background: "linear-gradient(45deg, #1976d2 30%, #2196F3 90%)",
@@ -53,6 +71,11 @@ const styles = {
     borderRadius: "10px",
     boxShadow: "0px 5px 10px rgba(0, 0, 0, 0.1)",
   },
+  errorAlert: {
+    position: "fixed",
+    top: "70px", // Adjust this value to control the vertical position
+    right: "20px",
+  },
 };
 
 interface AppState {
@@ -70,6 +93,7 @@ interface AppState {
   newProposition: string;
   newVoterAddress: string;
   isPublicSession: boolean;
+  error: string | null;
 }
 
 class App extends Component<{}, AppState> {
@@ -88,6 +112,7 @@ class App extends Component<{}, AppState> {
     newProposition: "",
     newVoterAddress: "",
     isPublicSession: false,
+    error: null,
   };
 
   async componentDidMount() {
@@ -97,8 +122,10 @@ class App extends Component<{}, AppState> {
 
       const instance = new web3.eth.Contract(
         Voting.abi,
-        '0x784C8Bf66752ffc60ac220962c4EF47e2568DEb5'
+        '0xCa8D976D9f37de1c30CCF1464B989bfEd176b1Ab'
       );
+
+      console.log("instance", instance);
 
       this.setState({ web3, accounts, contract: instance });
 
@@ -120,9 +147,7 @@ class App extends Component<{}, AppState> {
       // const sessionStatus = await instance.methods.getSessionStatus().call();
       // Update state based on session status
     } catch (error) {
-      alert(
-        `Failed to load web3, accounts, or contract. Check the console for details.`
-      );
+      this.setState({ error: `Failed to load web3, accounts, or contract.` });
       console.error(error);
     }
   }
@@ -135,12 +160,11 @@ class App extends Component<{}, AppState> {
       const isPublic = this.state.isPublicSession; // Assuming you have an isPublicSession state for the checkbox
       const startRes = await contract.methods.startSession(isPublic).call({ from: accounts[0] });
       console.log("startRes", startRes);
-
     } catch (error) {
+      this.setState({ error: `Failed to start the session.` });
       console.error("Failed to start the session:", error);
     }
   };
-  
 
   handleAddProposition = async () => {
     // Implement adding a proposition logic
@@ -148,18 +172,54 @@ class App extends Component<{}, AppState> {
 
   handleAddVoter = async () => {
     // Implement adding a voter logic
+    // newVoterAddress is the address of the voter to be added (this.state.newVoterAddress) [we can split by ',' to add multiple voters at once]
+    try {
+      const { contract, accounts } = this.state;
+      const voters = this.state.newVoterAddress.split(",");
+      for (let i = 0; i < voters.length; i++) {
+        console.log("adding voter", voters[i]);
+        const voterRes = await contract.methods.addVoter(voters[i]).call({ from: accounts[0] });
+        console.log("voterRes", voterRes);
+      }
+    } catch (error) {
+      this.setState({ error: `Failed to add the voter.` });
+      console.error("Failed to add the voter:", error);
+    }
   };
 
   handleOpenVote = async () => {
     // Implement opening the vote session logic
+    try{
+      const { contract, accounts } = this.state;
+      const openRes = await contract.methods.openVote().call({ from: accounts[0] });
+      console.log("openRes", openRes);
+    }catch (error) {
+      this.setState({ error: `Failed to open the vote.` });
+      console.error("Failed to open the vote:", error);
+    }
   };
 
   handleCloseVote = async () => {
     // Implement closing the vote session logic
+    try{
+      const { contract, accounts } = this.state;
+      const closeRes = await contract.methods.closeVote().call({ from: accounts[0] });
+      console.log("closeRes", closeRes);
+    }catch (error) {
+      this.setState({ error: `Failed to close the vote.` });
+      console.error("Failed to close the vote:", error);
+    }
   };
 
   handleGetResults = async () => {
-    // Implement getting vote results and winner logic
+    try{
+      const { contract, accounts } = this.state;
+      const resultsRes = await contract.methods.getResults().call({ from: accounts[0] });
+      console.log("resultsRes", resultsRes);
+    }catch (error) {
+      this.setState({ error: `Failed to get the results.` });
+      console.error("Failed to get the results:", error);
+    }
   };
 
   // Implement input change handlers
@@ -169,6 +229,10 @@ class App extends Component<{}, AppState> {
 
   handleVoterAddressChange = (e: ChangeEvent<HTMLInputElement>) => {
     this.setState({ newVoterAddress: e.target.value });
+  };
+
+  handleCloseError = () => {
+    this.setState({ error: null });
   };
 
   render() {
@@ -271,6 +335,12 @@ class App extends Component<{}, AppState> {
           </Grid>
         </Container>
 
+        {this.state.error && (
+          <Alert severity="error" onClose={this.handleCloseError}  style={styles.errorAlert}>
+            {this.state.error}
+          </Alert>
+        )}
+
         <div style={styles.footer}>
           Project Description: A simple voting application.
         </div>
@@ -280,8 +350,6 @@ class App extends Component<{}, AppState> {
 }
 
 export default App;
-
-
 
 
 
