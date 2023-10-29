@@ -1,6 +1,7 @@
-import { Component, ChangeEvent } from "react";
+import { Component, ChangeEvent, useState, useEffect, useRef } from "react";
 import Voting from "./artifacts/contracts/Voting.sol/Voting.json";
 import getWeb3 from "./getWeb3";
+import Confetti from "react-confetti";
 import {
   Container,
   AppBar,
@@ -8,6 +9,7 @@ import {
   Typography,
   Checkbox,
   TextField,
+  Popover ,
   Button,
   Paper,
   Grid,
@@ -15,7 +17,8 @@ import {
   Alert,
 } from "@mui/material";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
-import { WorkflowStatus } from "./component/structure/Structure";
+import { Proposal, WorkflowStatus } from "./component/structure/Structure";
+import { Uint } from "web3";
 
 const styles = {
   root: {
@@ -88,12 +91,13 @@ interface AppState {
   isOwner: boolean;
   sessionStatus: WorkflowStatus;
   voteOpen: boolean;
-  propositions: string[];
+  propositions: Proposal[];
   voters: string[];
   results: string;
-  winner: string;
+  winner: Proposal |null;
   newProposition: string;
   newVoterAddress: string;
+  alreadyVote:boolean;
   isPublicSession: boolean;
   error: string | null;
 }
@@ -111,13 +115,14 @@ class App extends Component<{}, AppState> {
     propositions: [],
     voters: [],
     results: "",
-    winner: "",
+    winner:null,//{"description":"","proposalId":"","proposerPar":"","voteCount":""}
     newProposition: "",
     newVoterAddress: "",
+    alreadyVote:false,
     isPublicSession: false,
     error: null,
   };
-
+  
 
   async componentDidMount() {
     try {
@@ -129,7 +134,6 @@ class App extends Component<{}, AppState> {
       );
       console.log(instance);
               
-       
 
       this.setState({ web3, accounts, contract: instance });
 
@@ -146,6 +150,18 @@ class App extends Component<{}, AppState> {
           isOwner: true,
         });
       }
+      
+      instance.events.WorkflowStatusChange({
+        fromBlock: 0,
+      })
+        .on('data', (event) => {
+
+          const { newStatus } = event.returnValues;
+          this.setState({
+            sessionStatus: Number(newStatus) as WorkflowStatus,
+          });
+
+        });
 
       // Fetch and update session status and other data
       // const sessionStatus = await instance.methods.getSessionStatus().call();
@@ -160,11 +176,26 @@ class App extends Component<{}, AppState> {
 
   handleStartSession = async () => {
     try {
+      
       const {web3, contract, accounts,contractAddress,isPublicSession} = this.state;
+
+      this.setState({
+        sessionStatus: WorkflowStatus.Notstart,
+        voteOpen: false,
+        propositions: [],
+        voters: [],
+        results: "",
+        winner:null,
+        newProposition: "",
+        newVoterAddress: "",
+        alreadyVote:false,
+        error: null,
+      });
+
       const gasEstimate = await contract.methods
       .startSession(isPublicSession)
       .estimateGas({ from: accounts[0] });
-      console.log(gasEstimate);
+      //console.log(gasEstimate);
 
       const encode = await contract.methods.startSession(isPublicSession).encodeABI();
 
@@ -176,9 +207,37 @@ class App extends Component<{}, AppState> {
       });
       console.log("function ", tx);
 
+
     } catch (error) {
       this.setState({ error: `Failed to start the session.` });
       console.error("Failed to start the session:", error);
+    }
+  };
+  handleAddVoter = async () => {
+    // Implement adding a voter logic
+    // newVoterAddress is the address of the voter to be added (this.state.newVoterAddress) [we can split by ',' to add multiple voters at once]
+    try {
+      const { contract, accounts, web3 } = this.state;
+      const voters = this.state.newVoterAddress.split(",");
+
+      for (let i = 0; i < voters.length; i++) {
+        const gasEstimate = await contract.methods.addVoter(voters[i]).estimateGas({ from: accounts[0]});
+        const encode = await contract.methods.addVoter(voters[i]).encodeABI();
+
+        const tx = await web3.eth.sendTransaction({
+          from: accounts[0],
+          to: this.state.contractAddress,
+          gas: gasEstimate,
+          data: encode,
+        });
+
+        console.log(tx);
+      }
+      
+      this.setState({newVoterAddress:""});
+    } catch (error) {
+      this.setState({ error: `Failed to add the voter.` });
+      console.error("Failed to add the voter:", error);
     }
   };
   handleCloseRegisterVoter= async()=>{
@@ -223,7 +282,8 @@ class App extends Component<{}, AppState> {
         data: encode,
       });
       console.log("function ", tx);
-      this.state.newProposition="";
+      await this.handleRefreshProposition();
+      this.setState({newProposition:""});
     } catch (error) {
       this.setState({ error: `Failed to Add the proposition.` });
       console.error("Failed to Add the proposition:", error);
@@ -246,39 +306,14 @@ class App extends Component<{}, AppState> {
         data: encode,
       });
       console.log("function ", tx);
-
+      this.handleRefreshProposition();
     } catch (error) {
       this.setState({ error: `Failed to close register proposal.` });
       console.error("Failed to register proposal:", error);
     }
   }
 
-  handleAddVoter = async () => {
-    // Implement adding a voter logic
-    // newVoterAddress is the address of the voter to be added (this.state.newVoterAddress) [we can split by ',' to add multiple voters at once]
-    try {
-      const { contract, accounts, web3 } = this.state;
-      const voters = this.state.newVoterAddress.split(",");
-
-      for (let i = 0; i < voters.length; i++) {
-        const gasEstimate = await contract.methods.addVoter(voters[i]).estimateGas({ from: accounts[0]});
-        const encode = await contract.methods.addVoter(voters[i]).encodeABI();
-
-        const tx = await web3.eth.sendTransaction({
-          from: accounts[0],
-          to: this.state.contractAddress,
-          gas: gasEstimate,
-          data: encode,
-        });
-
-        console.log(tx);
-      }
-      this.state.newVoterAddress="";
-    } catch (error) {
-      this.setState({ error: `Failed to add the voter.` });
-      console.error("Failed to add the voter:", error);
-    }
-  };
+  
 
   handleOpenVote = async () => {
     // Implement opening the vote session logic
@@ -298,6 +333,38 @@ class App extends Component<{}, AppState> {
     } catch (error) {
       this.setState({ error: `Failed to open the vote.` });
       console.error("Failed to open the vote:", error);
+    }
+  };
+
+  handleAddVote = async (currentvote:Uint) => {
+    // Implement opening the vote session logic
+    try {
+      const { contract, accounts, web3,alreadyVote} = this.state;
+      
+      this.handleRefreshProposition();
+      if(currentvote==null){
+        throw ("currentVote not valid");
+      }
+      if(alreadyVote){
+        throw ("You already vote");
+      }
+    
+      const gasEstimate = await contract.methods.addVote(currentvote).estimateGas({ from: accounts[0]});
+      const encode = await contract.methods.addVote(currentvote).encodeABI();
+
+      const tx = await web3.eth.sendTransaction({
+        from: accounts[0],
+        to: this.state.contractAddress,
+        gas: gasEstimate,
+        data: encode,
+      });
+
+      console.log(tx);
+      this.setState({alreadyVote:true});
+      this.handleRefreshProposition();
+    } catch (error) {
+      this.setState({ error: `Failed to add the vote.` });
+      console.error("Failed to add the vote:", error);
     }
   };
 
@@ -322,11 +389,25 @@ class App extends Component<{}, AppState> {
     }
   };
 
+
+  handleRefreshProposition = async ()=>{
+    try{
+      const { contract, accounts } = this.state;
+      const resultsRes = await contract.methods.getSessionProposal().call({ from: accounts[0] });
+      console.log("getSessionProposal", resultsRes);
+      this.setState({propositions:resultsRes});
+    }catch (error) {
+      this.setState({ error: `Failed to get the propositions.` });
+      console.error("Failed to get the propositions:", error);
+    }
+  };
   handleGetResults = async () => {
     try{
       const { contract, accounts } = this.state;
-      const resultsRes = await contract.methods.getResults().call({ from: accounts[0] });
+      const resultsRes = await contract.methods.getWinner().call({ from: accounts[0] });
       console.log("resultsRes", resultsRes);
+      
+      this.setState({winner:resultsRes});
     }catch (error) {
       this.setState({ error: `Failed to get the results.` });
       console.error("Failed to get the results:", error);
@@ -346,9 +427,95 @@ class App extends Component<{}, AppState> {
     this.setState({ error: null });
   };
 
+  renderStep = () => {
+    console.log("this.state.sessionStatus", this.state.sessionStatus);
+    switch (this.state.sessionStatus) {
+
+      case WorkflowStatus.RegisteringVoters:
+        return (
+          <div>
+            {/* Render UI for RegisteringVoters step */}
+            <Button
+              variant="contained"
+              onClick={this.handleStartSession}
+              style={styles.button}
+            >
+              Start Registering Voters
+            </Button>
+          </div>
+        );
+
+      case WorkflowStatus.ProposalsRegistrationStarted:
+        console.log("handleCloseVote", this.handleCloseVote);
+        return (
+          <div>
+            {/* Render UI for ProposalsRegistrationStarted step */}
+            <TextField
+              type="text"
+              label="Enter a proposition"
+              value={this.state.newProposition}
+              onChange={this.handlePropositionChange}
+            />
+            <Button
+              variant="contained"
+              onClick={this.handleAddProposition}
+              style={styles.button}
+            >
+              Add Proposition
+            </Button>
+          </div>
+        );
+
+      case WorkflowStatus.ProposalsRegistrationEnded:
+        return (
+          <div>
+            {/* Render UI for ProposalsRegistrationEnded step */}
+            <Button
+              variant="contained"
+              onClick={this.handleOpenVote}
+              style={styles.button}
+            >
+              Open Voting Session
+            </Button>
+          </div>
+        );
+
+      case WorkflowStatus.VotingSessionStarted:
+        return (
+          <div>
+            {/* Render UI for VotingSessionStarted step */}
+            <Button
+              variant="contained"
+              onClick={this.handleCloseVote}
+              style={styles.button}
+            >
+              Close Voting Session
+            </Button>
+          </div>
+        );
+
+      case WorkflowStatus.VotingSessionEnded:
+        return (
+          <div>
+            {/* Render UI for VotingSessionEnded step */}
+            <Button
+              variant="contained"
+              onClick={this.handleGetResults}
+              style={styles.button}
+            >
+              Get Voting Results
+            </Button>
+          </div>
+        );
+
+      default:
+        console.log("defaul", this.state.sessionStatus);
+        return null;
+    }
+  };
   render() {
     return (
-      <div style={styles.root}>
+      <div style={styles.root} >
         <AppBar position="static" style={styles.header}>
           <Toolbar>
             <Typography variant="h6" style={styles.brand}>
@@ -463,6 +630,7 @@ class App extends Component<{}, AppState> {
                   >
                     Add Voter
                   </Button>
+                  <br/>
                   <Button
                     variant="contained"
                     onClick={this.handleOpenVote}
@@ -477,12 +645,119 @@ class App extends Component<{}, AppState> {
                   >
                     Close Vote
                   </Button>
+                  <Button
+                    variant="contained"
+                    onClick={this.handleGetResults}
+                    style={styles.button}
+                  >
+                    Who Win ?
+                  </Button>
+                  <br/>
+                  
                 </Paper>
               </Grid>
             )}
+
+            <Grid item xs={100} sm={100}>
+                <Paper style={styles.paper}>
+                  <label>Les proposition de Vote</label>
+                  <br/>
+                  <br/>
+                  <br/>
+                  <Grid container spacing={2} >
+                    {Object(this.state.propositions).map((proposition:Proposal) => (
+
+                      <Grid item  key={proposition.proposalId} >
+                        <Paper style={{backgroundColor:"GrayText",padding:"5px"}}>
+                          <h4>{proposition.description}</h4>
+                          <p>Vote :{Number(proposition.voteCount)}</p>
+                          <Button 
+                            variant="contained"
+                            onClick={() => {
+                              this.handleAddVote(proposition.proposalId);
+                            }}
+                            style={styles.button}
+                          >
+                            Voter
+                          </Button>
+                        </Paper>
+                      </Grid>
+                    ))}
+                  </Grid>
+                </Paper>
+            </Grid>
+            
+            
+                        {this.state.winner!=null ?(
+              <>
+              <Confetti numberOfPieces={150} width={2000} height={2000} />
+                <Popover 
+                    id={"1"}
+                    open={true}
+                    anchorOrigin={{
+                      vertical: 'center',
+                      horizontal: 'center',
+                    }}
+                    transformOrigin={{
+                      vertical: 'center',
+                      horizontal: 'center',
+                    }}
+                  >
+                  <Typography sx={{ p: 10 }}>
+                    The Propose winner is : <br/>
+                    {this.state.winner.description} <br/>
+                    with: {this.state.winner.voteCount} votes <br/>
+                    from: {this.state.winner.proposerPar} <br/><br/>
+                    {this.state.isOwner ? (
+                      <>
+                        <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={this.state.isPublicSession}
+                          onChange={() =>
+                            this.setState({
+                              isPublicSession: !this.state.isPublicSession,
+                            })
+                          }
+                          color="primary"
+                        />
+                      }
+                      label="Is Public Session"
+                    />
+                    <Button
+                      variant="contained"
+                      onClick={this.handleStartSession}
+                      style={styles.button}
+                    >
+                      Restart Session
+                    </Button>
+                      </>
+                    ):(<>
+                      Wait until Admin Restart Session
+                    
+                    </>)}
+                  </Typography>
+                </Popover>
+              </>
+            ):(
+              <>
+              </>
+            )}
+            
           </Grid>
+
         </Container>
 
+        {this.state.isOwner && (
+          <Container style={styles.section}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <Paper style={styles.paper}>{this.renderStep()}</Paper>
+              </Grid>
+              {/* ... (other UI components) */}
+            </Grid>
+          </Container>
+        )}
         {this.state.error && (
           <Alert severity="error" onClose={this.handleCloseError}  style={styles.errorAlert}>
             {this.state.error}
@@ -682,3 +957,4 @@ export default App;
 // }
 
 // export default App;
+

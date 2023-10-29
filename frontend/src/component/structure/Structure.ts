@@ -1,3 +1,4 @@
+import { Uint } from "web3";
 
 export enum WorkflowStatus {
     Notstart,
@@ -9,15 +10,15 @@ export enum WorkflowStatus {
     VotesTallied
 }
 export interface Proposal {
-    proposalId:number;
+    proposalId:Uint;
      description:string;
-     voteCount:number;
+     voteCount:Uint;
      proposerPar: string;
 }
 export interface Voter {
     isRegistered:boolean;
     hasVoted:boolean;
-    votedProposalId:number;
+    votedProposalId:Uint;
 }
 
 export interface  SessionData {
