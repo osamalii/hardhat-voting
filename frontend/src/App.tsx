@@ -28,7 +28,7 @@ class App extends Component<{}, AppState> {
     accounts: null,
     newBlackListAddress:"",
     contract: null,
-    contractAddress:"0xA23CcBB8d0238E2d67C40654b3F3061aD456EBBB",
+    contractAddress:"0xD77eBd94A69eB0F650f99a7De11fB4B20db8747d",
     userAddress: null,
     isOwner: false,
     sessionStatus: WorkflowStatus.Notstart,
@@ -83,7 +83,7 @@ class App extends Component<{}, AppState> {
           });
 
         });
-
+        this.handleRefreshProposition();
       // Fetch and update session status and other data
       // const sessionStatus = await instance.methods.getSessionStatus().call();
       // Update state based on session status
@@ -127,7 +127,7 @@ class App extends Component<{}, AppState> {
         data: encode,
       });
       console.log("function ", tx);
-
+      console.log(this.state.sessionStatus);
 
     } catch (error) {
       this.setState({ error: `Failed to start the session.` });
@@ -352,7 +352,7 @@ class App extends Component<{}, AppState> {
       console.error("Failed to get the propositions:", error);
     }
   };
-  handleGetResults = async () => {
+  handleCalculAndGetResults = async () => {
     try{
       const { contract, accounts,web3,contractAddress } = this.state;
       const gasEstimate = await contract.methods
@@ -370,6 +370,19 @@ class App extends Component<{}, AppState> {
       });
       console.log("function ", tx);
 
+      
+      const resultsRes = await contract.methods.getWinner().call({ from: accounts[0] });
+      console.log("resultsRes", resultsRes);
+      
+      this.setState({winner:resultsRes});
+    }catch (error) {
+      this.setState({ error: `Failed to get the results.` });
+      console.error("Failed to get the results:", error);
+    }
+  };
+  handleGetResults = async () => {
+    try{
+      const { contract, accounts } = this.state;
       
       const resultsRes = await contract.methods.getWinner().call({ from: accounts[0] });
       console.log("resultsRes", resultsRes);
@@ -400,38 +413,142 @@ class App extends Component<{}, AppState> {
     console.log("this.state.sessionStatus", this.state.sessionStatus);
     switch (this.state.sessionStatus) {
 
+      case WorkflowStatus.Notstart:
+        return (
+          <div>
+            {/* Render UI for StartSession step */}
+            {this.state.isOwner ? (
+                  <div>
+                    <h3>Start the Session</h3>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={this.state.isPublicSession}
+                          onChange={() =>
+                            this.setState({
+                              isPublicSession: !this.state.isPublicSession,
+                            })
+                          }
+                          color="primary"
+                        />
+                      }
+                      label="Is Public Session"
+                    />
+                    <Button
+                      variant="contained"
+                      onClick={this.handleStartSession}
+                      style={styles.button}
+                    >
+                      Start Session
+                    </Button>
+                </div>
+          ):(
+            <>
+              <p>The session will start soon</p>
+            </>
+          )}
+          </div>
+            
+        );
+                      
       case WorkflowStatus.RegisteringVoters:
         return (
           <div>
             {/* Render UI for RegisteringVoters step */}
-            <Button
-              variant="contained"
-              onClick={this.handleStartSession}
-              style={styles.button}
-            >
-              Start Registering Voters
-            </Button>
+            {this.state.isOwner ? (
+                  <div>
+                    <h3>Add or blackList voters</h3>
+                    <br/>
+                        <TextField
+                          type="text"
+                          label="Enter voter's address"
+                          value={this.state.newBlackListAddress}
+                          onChange={this.handleBlackListVoterAddressChange}
+                        />
+                        <Button
+                          variant="contained"
+                          onClick={this.handleBlackListVoter}
+                          style={styles.button}
+                        >
+                          BlackList Voter
+                        </Button>
+                        <br/>
+
+                        <TextField
+                          type="text"
+                          label="Enter voter's address"
+                          value={this.state.newVoterAddress}
+                          onChange={this.handleVoterAddressChange}
+                        />
+                        <Button
+                          variant="contained"
+                          onClick={this.handleAddVoter}
+                          style={styles.button}
+                        >
+                          WhiteList Voter
+                        </Button>
+                        <br/>
+                        <Button
+                          variant="contained"
+                          onClick={this.handleCloseRegisterVoter}
+                          style={styles.button}
+                        >
+                          Close Register Voter
+                        </Button>
+                      
+                </div>
+          ):(
+            <>
+              <p>The session will start soon</p>
+            </>
+          )}
           </div>
         );
 
       case WorkflowStatus.ProposalsRegistrationStarted:
         console.log("handleCloseVote", this.handleCloseVote);
         return (
+         
           <div>
+             
             {/* Render UI for ProposalsRegistrationStarted step */}
-            <TextField
-              type="text"
-              label="Enter a proposition"
-              value={this.state.newProposition}
-              onChange={this.handlePropositionChange}
-            />
-            <Button
-              variant="contained"
-              onClick={this.handleAddProposition}
-              style={styles.button}
-            >
-              Add Proposition
-            </Button>
+            <h3>Add Propositions</h3>
+            {
+            this.state.isPublicSession ||  this.state.isOwner? (
+              <>
+                <TextField
+                  type="text"
+                  label="Enter a proposition"
+                  value={this.state.newProposition}
+                  onChange={this.handlePropositionChange}
+                />
+                <Button
+                  variant="contained"
+                  onClick={this.handleAddProposition}
+                  style={styles.button}
+                >
+                  Add Proposition
+                </Button>
+              </>
+              ):(
+                <>
+                  <h3>Waiting is private Proposition</h3>
+                </>
+              )
+              }
+            {
+               this.state.isOwner && (
+                <>
+                   <Button
+                      variant="contained"
+                      onClick={this.handleCloseRegisterProposals}
+                      style={styles.button}
+                    >
+                      Close Register Proposals  
+                    </Button>
+                </>
+               )
+            }
           </div>
         );
 
@@ -439,6 +556,7 @@ class App extends Component<{}, AppState> {
         return (
           <div>
             {/* Render UI for ProposalsRegistrationEnded step */}
+           { this.state.isOwner ? (
             <Button
               variant="contained"
               onClick={this.handleOpenVote}
@@ -446,6 +564,9 @@ class App extends Component<{}, AppState> {
             >
               Open Voting Session
             </Button>
+            ):(
+              <h3>Wait the voting time</h3>
+            )}
           </div>
         );
 
@@ -453,6 +574,8 @@ class App extends Component<{}, AppState> {
         return (
           <div>
             {/* Render UI for VotingSessionStarted step */}
+            <h3>Voting Time !!!!</h3>
+            { this.state.isOwner && (
             <Button
               variant="contained"
               onClick={this.handleCloseVote}
@@ -460,6 +583,7 @@ class App extends Component<{}, AppState> {
             >
               Close Voting Session
             </Button>
+            )}
           </div>
         );
 
@@ -467,13 +591,19 @@ class App extends Component<{}, AppState> {
         return (
           <div>
             {/* Render UI for VotingSessionEnded step */}
+            { this.state.isOwner ? (
             <Button
               variant="contained"
-              onClick={this.handleGetResults}
+              onClick={this.handleCalculAndGetResults}
               style={styles.button}
             >
               Get Voting Results
             </Button>
+            ):(
+            <>
+              <h3>Wait Admin to know the winner</h3>
+            </>
+            )}
           </div>
         );
 
@@ -500,149 +630,12 @@ class App extends Component<{}, AppState> {
         </AppBar>
 
         <Container style={styles.section}>
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
-              <Paper style={styles.paper}>
-                {this.state.isOwner ? (
-                  <div>
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          checked={this.state.isPublicSession}
-                          onChange={() =>
-                            this.setState({
-                              isPublicSession: !this.state.isPublicSession,
-                            })
-                          }
-                          color="primary"
-                        />
-                      }
-                      label="Is Public Session"
-                    />
-                    <Button
-                      variant="contained"
-                      onClick={this.handleStartSession}
-                      style={styles.button}
-                    >
-                      Start Session
-                    </Button>
-
-                    <Button
-                      variant="contained"
-                      onClick={this.handleCloseRegisterVoter}
-                      style={styles.button}
-                    >
-                      Close Register Voter
-                    </Button>
-                  
-
-                
-                
-                    
-                  
-                    <TextField
-                      type="text"
-                      label="Enter a proposition"
-                      value={this.state.newProposition}
-                      onChange={this.handlePropositionChange}
-                    />
-                    <Button
-                      variant="contained"
-                      onClick={this.handleAddProposition}
-                      style={styles.button}
-                    >
-                      Add Admin Proposition
-                    </Button>
-
-                    <Button
-                      variant="contained"
-                      onClick={this.handleCloseRegisterProposals}
-                      style={styles.button}
-                    >
-                      Close Register Proposals  
-                    </Button>
-                  
-                  </div>
-                  
-                ) : (
-                  <div>
-                    <TextField
-                      type="text"
-                      label="Enter a proposition"
-                      value={this.state.newProposition}
-                      onChange={this.handlePropositionChange}
-                    />
-                    <Button
-                      variant="contained"
-                      onClick={this.handleAddProposition}
-                      style={styles.button}
-                    >
-                      Add Proposition
-                    </Button>
-                  </div>
-                )}
-              </Paper>
-            </Grid>
-            {this.state.isOwner && (
-              <Grid item xs={12} sm={6}>
-                <Paper style={styles.paper}>
-                <TextField
-                    type="text"
-                    label="Enter voter's address"
-                    value={this.state.newBlackListAddress}
-                    onChange={this.handleBlackListVoterAddressChange}
-                  />
-                  <Button
-                    variant="contained"
-                    onClick={this.handleBlackListVoter}
-                    style={styles.button}
-                  >
-                    BlackList Voter
-                  </Button>
-                  <br/>
-
-                  <TextField
-                    type="text"
-                    label="Enter voter's address"
-                    value={this.state.newVoterAddress}
-                    onChange={this.handleVoterAddressChange}
-                  />
-                  <Button
-                    variant="contained"
-                    onClick={this.handleAddVoter}
-                    style={styles.button}
-                  >
-                    WhiteList Voter
-                  </Button>
-                  <br/>
-                  <Button
-                    variant="contained"
-                    onClick={this.handleOpenVote}
-                    style={styles.button}
-                  >
-                    Open Vote
-                  </Button>
-                  <Button
-                    variant="contained"
-                    onClick={this.handleCloseVote}
-                    style={styles.button}
-                  >
-                    Close Vote
-                  </Button>
-                  <Button
-                    variant="contained"
-                    onClick={this.handleGetResults}
-                    style={styles.button}
-                  >
-                    Who Win ?
-                  </Button>
-                  <br/>
-                  
-                </Paper>
+            <Grid container spacing={2}>
+              <Grid item xs={100} sm={100}>
+                <Paper style={styles.paper}>{this.renderStep()}</Paper>
               </Grid>
-            )}
-
-            <Grid item xs={100} sm={100}>
+              {/* ... (other UI components) */}
+              <Grid item xs={100} sm={100}>
                 <Paper style={styles.paper}>
                   <label>Les proposition de Vote</label>
                   <br/>
@@ -672,7 +665,7 @@ class App extends Component<{}, AppState> {
             </Grid>
             
             
-                        {this.state.winner!=null ?(
+                        {this.state.winner!=null &&(
               <>
               <Confetti numberOfPieces={150} width={2000} height={2000} />
                 <Popover 
@@ -717,31 +710,16 @@ class App extends Component<{}, AppState> {
                     </Button>
                       </>
                     ):(<>
-                      Wait until Admin Restart Session
+                      <h3>Wait until Admin Restart Session</h3>
                     
                     </>)}
                   </Typography>
                 </Popover>
               </>
-            ):(
-              <>
-              </>
             )}
             
-          </Grid>
-
-        </Container>
-
-        {this.state.isOwner && (
-          <Container style={styles.section}>
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <Paper style={styles.paper}>{this.renderStep()}</Paper>
-              </Grid>
-              {/* ... (other UI components) */}
             </Grid>
           </Container>
-        )}
         {this.state.error && (
           <Alert severity="error" onClose={this.handleCloseError}  style={styles.errorAlert}>
             {this.state.error}

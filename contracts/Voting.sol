@@ -96,6 +96,7 @@ function startSession(bool _publicProposal) public onlyOwner payable   {
        // currentSession.lesProposition = newlesPropositions;
         currentSession.isValid = true;
         currentSession.whitelist[msg.sender] = Voter(true, false, 0);
+        emit WorkflowStatusChange(WorkflowStatus.RegisteringVoters, WorkflowStatus.RegisteringVoters);
 
         
     }
