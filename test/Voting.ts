@@ -4,66 +4,87 @@ import { Signer, Contract, ContractFactory } from "ethers";
 import { Voting } from '../typechain-types/contracts'; // Import the contract interface
 
 describe("Voting Contract", function () {
-  let owner: Signer;
-  let voter1: Signer;
   let votingContract: Voting;
-  let votingContractFactory: ContractFactory;
+  let admin: Signer;
+  let user1: Signer;
+  let user2: Signer;
 
   before(async function () {
-    [owner, voter1] = await ethers.getSigners();
+    [admin, user1, user2] = await ethers.getSigners();
 
-    votingContractFactory = await ethers.getContractFactory("Voting");
-    votingContract = await votingContractFactory.deploy();
+    const VotingFactory: ContractFactory = await ethers.getContractFactory("Voting");
+    votingContract = (await VotingFactory.deploy()) as Voting;
     await votingContract.deployed();
   });
 
   it("Should add a voter to the whitelist", async function () {
-    await votingContract.connect(owner).addVoter(voter1.getAddress());
-    expect(await votingContract.whitelist(voter1.getAddress())).to.be.true;
+    // Use the 'admin' signer to add a voter to the whitelist
+    await votingContract.addVoter(await user1.getAddress());
+    const isVoter = await votingContract.isVoter(await user1.getAddress());
+    expect(isVoter).to.be.true;
   });
 
-  it("Should start a session", async function () {
-    await votingContract.connect(owner).startSession(true);
-    expect(await votingContract.getSession()).to.equal(1); // Adjust the expected value
+  it("Should open proposal registration and allow users to add proposals", async function () {
+    // Use the 'admin' signer to open proposal registration
+    await votingContract.openProposalRegistration();
+    
+    // Use 'user1' to add a proposal
+    await votingContract.addProposal("Proposal 1", { from: await user1.getAddress() });
+
+    // Use 'user2' to add another proposal
+    await votingContract.addProposal("Proposal 2", { from: await user2.getAddress() });
+
+    // Verify that there are two proposals
+    const proposalCount = await votingContract.getProposalCount();
+    expect(proposalCount).to.equal(2);
   });
 
-  it("Should close proposition session", async function () {
-    await votingContract.connect(owner).closeProposition();
-    expect(await votingContract.getSession()).to.equal(2); // Adjust the expected value
+  it("Should not allow users to add proposals after proposal registration is closed", async function () {
+    // Use the 'admin' signer to close proposal registration
+    await votingContract.closeProposalRegistration();
+
+    // Attempt to add a proposal using 'user2' (expect to fail)
+    await expect(votingContract.addProposal("Proposal 3", { from: await user2.getAddress() })).to.be.revertedWith("Proposal registration is closed");
   });
 
-  it("Should open the vote session", async function () {
-    await votingContract.connect(owner).openVote();
-    expect(await votingContract.getSession()).to.equal(3); // Adjust the expected value
+  it("Should allow users to vote once in the voting session", async function () {
+    // Use 'user1' to vote for 'Proposal 1'
+    await votingContract.vote(0, { from: await user1.getAddress() });
+
+    // Verify that 'user1' has voted
+    const user1HasVoted = await votingContract.hasVoted(await user1.getAddress());
+    expect(user1HasVoted).to.be.true;
+
+    // Attempt to vote again using 'user1' (expect to fail)
+    await expect(votingContract.vote(1, { from: await user1.getAddress() })).to.be.revertedWith("Already voted");
   });
 
-  it("Should close the vote session", async function () {
-    await votingContract.connect(owner).closeVote();
-    expect(await votingContract.getSession()).to.equal(4); // Adjust the expected value
+  it("Should not allow non-voters to vote", async function () {
+    // Use 'user2' to vote (expect to fail because 'user2' is not on the whitelist)
+    await expect(votingContract.vote(1, { from: await user2.getAddress() })).to.be.revertedWith("Not a registered voter");
   });
 
-  it("Should allow a registered voter to vote", async function () {
-    await votingContract.connect(voter1).setVote(0);
-    const voter = await votingContract.whitelist(await voter1.getAddress());
-    expect(voter.hasVoted).to.be.true;
+  it("Should close the voting session and count votes", async function () {
+    // Use the 'admin' signer to close the voting session
+    await votingContract.closeVotingSession();
+
+    // Use the 'admin' signer to count votes and get the winning proposal index
+    await votingContract.countVotes();
+    const winningProposalIndex = await votingContract.getWinningProposal();
+
+    // Verify that the winning proposal is 'Proposal 1'
+    expect(winningProposalIndex).to.equal(0);
   });
 
-  it("Should not allow a voter to vote twice", async function () {
-    await expect(votingContract.connect(voter1).setVote(1)).to.be.reverted;
+  it("Should not allow users to vote after the voting session is closed", async function () {
+    // Attempt to vote using 'user2' (expect to fail)
+    await expect(votingContract.vote(1, { from: await user2.getAddress() })).to.be.revertedWith("Voting session is closed");
   });
 
-  it("Should allow a registered voter to propose a new proposal", async function () {
-    await votingContract.connect(voter1).proposer("New Proposal");
-    expect(await votingContract.currentSession.lesProposition.length).to.equal(1);
-  });
-
-  it("Should not allow a non-registered voter to propose", async function () {
-    await expect(votingContract.connect(owner).proposer("New Proposal")).to.be.reverted;
-  });
-
-  it("Should calculate and announce the winner", async function () {
-    await votingContract.connect(owner).contabiliserVote();
-    const winner = await votingContract.getWinner();
-    expect(winner.description).to.equal("The Winning Proposal"); // Adjust the expected value
+  it("Should open a new voting session", async function () {
+    // Use the 'admin' signer to open a new voting session
+    await votingContract.openVotingSession();
+    const votingSessionOpen = await votingContract.isVotingSessionOpen();
+    expect(votingSessionOpen).to.be.true;
   });
 });
