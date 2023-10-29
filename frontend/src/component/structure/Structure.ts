@@ -1,5 +1,6 @@
 
 export enum WorkflowStatus {
+    Notstart,
     RegisteringVoters,
     ProposalsRegistrationStarted,
     ProposalsRegistrationEnded,

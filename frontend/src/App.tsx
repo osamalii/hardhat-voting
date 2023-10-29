@@ -15,6 +15,7 @@ import {
   Alert,
 } from "@mui/material";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
+import { WorkflowStatus } from "./component/structure/Structure";
 
 const styles = {
   root: {
@@ -82,9 +83,10 @@ interface AppState {
   web3: any;
   accounts: string[] | null;
   contract: any;
+  addressContrat:string;
   userAddress: string | null;
   isOwner: boolean;
-  sessionStatus: string;
+  sessionStatus: WorkflowStatus;
   voteOpen: boolean;
   propositions: string[];
   voters: string[];
@@ -101,9 +103,10 @@ class App extends Component<{}, AppState> {
     web3: null,
     accounts: null,
     contract: null,
+    addressContrat:"0xA23CcBB8d0238E2d67C40654b3F3061aD456EBBB",
     userAddress: null,
     isOwner: false,
-    sessionStatus: "",
+    sessionStatus: WorkflowStatus.Notstart,
     voteOpen: false,
     propositions: [],
     voters: [],
@@ -115,33 +118,18 @@ class App extends Component<{}, AppState> {
     error: null,
   };
 
+
   async componentDidMount() {
     try {
       const web3 = await getWeb3();
       const accounts = await web3.eth.getAccounts();
-      const addressContrat ='0xD1fA19Ad77725C139913234c55BAE77A4501148f';
       const instance = new web3.eth.Contract(
         Voting.abi,
-        addressContrat
+        this.state.addressContrat
       );
       console.log(instance);
               
        
-      let gasEstimate = await instance.methods
-      .startSession(true)
-      .estimateGas({ from: accounts[0] });
-      console.log(gasEstimate);
-
-      let encode = await instance.methods.startSession(true).encodeABI();
-
-      let tx = await web3.eth.sendTransaction({
-        from: accounts[0],
-        to: addressContrat,
-        gas: gasEstimate,
-        data: encode,
-      });
-
-      console.log("instance", tx);
 
       this.setState({ web3, accounts, contract: instance });
 
@@ -172,54 +160,98 @@ class App extends Component<{}, AppState> {
 
   handleStartSession = async () => {
     try {
-      const {web3, contract, accounts } = this.state;
-      const isPublic = this.state.isPublicSession; // Assuming you have an isPublicSession state for the checkbox
-////
-      let gasEstimate = await contract.methods
-      .startSession(true)
+      const {web3, contract, accounts,addressContrat,isPublicSession} = this.state;
+      const gasEstimate = await contract.methods
+      .startSession(isPublicSession)
       .estimateGas({ from: accounts[0] });
       console.log(gasEstimate);
 
-      let encode = await contract.methods.startSession(true).encodeABI();
+      const encode = await contract.methods.startSession(isPublicSession).encodeABI();
 
-      let tx = await web3.eth.sendTransaction({
+      const tx = await web3.eth.sendTransaction({
         from: accounts[0],
-        to: "0xD1fA19Ad77725C139913234c55BAE77A4501148f",
+        to: addressContrat,
         gas: gasEstimate,
         data: encode,
       });
-     // console.log(tx);
-      ///
-       
-      console.log("startRes", tx);
-      const seesession = await contract.methods.getCurrentSession(isPublic).call({ from: accounts[0] });
-      console.log("Session", seesession);
+      console.log("function ", tx);
 
-
-      
-       gasEstimate = await contract.methods
-      .openProposalRegistration()
-      .estimateGas({ from: accounts[0] });
-      console.log(gasEstimate);
-
-       encode = await contract.methods.openProposalRegistration().encodeABI();
-
-       tx = await web3.eth.sendTransaction({
-        from: accounts[0],
-        to: "0xD1fA19Ad77725C139913234c55BAE77A4501148f",
-        gas: gasEstimate,
-        data: encode,
-      });
-      console.log("close session", tx);
     } catch (error) {
       this.setState({ error: `Failed to start the session.` });
       console.error("Failed to start the session:", error);
     }
   };
+  handleCloseRegisterVoter= async()=>{
+    try{
+      const {web3, contract, accounts,addressContrat} = this.state;
+      const gasEstimate = await contract.methods
+      .closeRegisteringVoters()
+      .estimateGas({ from: accounts[0] });
+      console.log(gasEstimate);
+
+      const encode = await contract.methods.closeRegisteringVoters().encodeABI();
+
+      const tx = await web3.eth.sendTransaction({
+        from: accounts[0],
+        to: addressContrat,
+        gas: gasEstimate,
+        data: encode,
+      });
+      console.log("function ", tx);
+
+    } catch (error) {
+      this.setState({ error: `Failed to close register voter.` });
+      console.error("Failed to close register voter:", error);
+    }
+  }
 
   handleAddProposition = async () => {
     // Implement adding a proposition logic
+    try{
+      const {web3, contract, accounts,addressContrat,newProposition} = this.state;
+      const gasEstimate = await contract.methods
+      .addProposal(newProposition)
+      .estimateGas({ from: accounts[0] });
+      console.log(gasEstimate);
+
+      const encode = await contract.methods.addProposal(newProposition).encodeABI();
+
+      const tx = await web3.eth.sendTransaction({
+        from: accounts[0],
+        to: addressContrat,
+        gas: gasEstimate,
+        data: encode,
+      });
+      console.log("function ", tx);
+      this.state.newProposition="";
+    } catch (error) {
+      this.setState({ error: `Failed to Add proposal.` });
+      console.error("Failed to Add proposal:", error);
+    }
   };
+  handleCloseRegisterProposals= async()=>{
+    try{
+      const {web3, contract, accounts,addressContrat} = this.state;
+      const gasEstimate = await contract.methods
+      .closeProposal()
+      .estimateGas({ from: accounts[0] });
+      console.log(gasEstimate);
+
+      const encode = await contract.methods.closeProposal().encodeABI();
+
+      const tx = await web3.eth.sendTransaction({
+        from: accounts[0],
+        to: addressContrat,
+        gas: gasEstimate,
+        data: encode,
+      });
+      console.log("function ", tx);
+
+    } catch (error) {
+      this.setState({ error: `Failed to close register proposal.` });
+      console.error("Failed to register proposal:", error);
+    }
+  }
 
   handleAddVoter = async () => {
     // Implement adding a voter logic
@@ -330,7 +362,42 @@ class App extends Component<{}, AppState> {
                     >
                       Start Session
                     </Button>
+
+                    <Button
+                      variant="contained"
+                      onClick={this.handleCloseRegisterVoter}
+                      style={styles.button}
+                    >
+                      Close Register Voter
+                    </Button>
+                  
+
+                
+                
+                    <Button
+                      variant="contained"
+                      onClick={this.handleCloseRegisterProposals}
+                      style={styles.button}
+                    >
+                      Close Register Proposals  
+                    </Button>
+                  
+                    <TextField
+                      type="text"
+                      label="Enter a proposition"
+                      value={this.state.newProposition}
+                      onChange={this.handlePropositionChange}
+                    />
+                    <Button
+                      variant="contained"
+                      onClick={this.handleAddProposition}
+                      style={styles.button}
+                    >
+                      Add Admin Proposition
+                    </Button>
+                  
                   </div>
+                  
                 ) : (
                   <div>
                     <TextField
