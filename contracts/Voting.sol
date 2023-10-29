@@ -43,7 +43,7 @@ contract Voting is CustomOwnable {
 
     Session[] public lesSession;
     Proposal[] public newlesPropositions;
-    uint sessionIndex = 0;
+    uint public sessionIndex;
 
     event VoterRegistered(address voterAddress);
     event VoterUnRegistered(address voterAddress);
@@ -76,10 +76,10 @@ contract Voting is CustomOwnable {
     }
 
     constructor() {
-        restart(true); // Start the initial session with public proposals.
+       // restart(true); // Start the initial session with public proposals.
     }
     
-function startSession(bool _publicProposal) public onlyOwner returns (uint, SessionFormat memory) {
+function startSession(bool _publicProposal) public onlyOwner payable returns (uint, SessionFormat memory)   {
     restart(_publicProposal);
     uint t = sessionIndex;
     return (t, SessionFormat(lesSession[sessionIndex].status, lesSession[sessionIndex].isPublicProposal, lesSession[sessionIndex].lesProposition, lesSession[sessionIndex].winner));
@@ -89,7 +89,7 @@ function startSession(bool _publicProposal) public onlyOwner returns (uint, Sess
         return lesSession[sessionIndex].status;
     }
 
-    function restart(bool _publicProposal) private {
+    function restart(bool _publicProposal)  private {
         delete newlesPropositions;
         uint idx = lesSession.length;
         lesSession.push();
@@ -99,13 +99,15 @@ function startSession(bool _publicProposal) public onlyOwner returns (uint, Sess
         currentSession.lesProposition = newlesPropositions;
         currentSession.isValid = true;
         currentSession.whitelist[msg.sender] = Voter(true, false, 0);
+        
     }
 
-    function openProposalRegistration() public onlyOwner {
+    function openProposalRegistration() public onlyOwner returns(WorkflowStatus,bool,WorkflowStatus){
         //require(lesSession[sessionIndex].status == WorkflowStatus.ProposalsRegistrationStarted, "The status is not ProposalsRegistrationStarted");
     
         emit WorkflowStatusChange(lesSession[sessionIndex].status, WorkflowStatus.ProposalsRegistrationStarted);
         lesSession[sessionIndex].status = WorkflowStatus.ProposalsRegistrationStarted;
+        return (lesSession[sessionIndex].status, lesSession[sessionIndex].status == WorkflowStatus.ProposalsRegistrationStarted, WorkflowStatus.ProposalsRegistrationStarted);
     }
 
 
@@ -127,21 +129,22 @@ function startSession(bool _publicProposal) public onlyOwner returns (uint, Sess
         emit VoterBlacklisted(_address);
     }
 
-    function closeRegisteringVoters() public onlyOwner {
+   /* function closeRegisteringVoters() public onlyOwner {
         emit WorkflowStatusChange(lesSession[sessionIndex].status, WorkflowStatus.ProposalsRegistrationStarted);
         lesSession[sessionIndex].status = WorkflowStatus.ProposalsRegistrationStarted;
-    }
+    }*/
 
-    function addProposal(string calldata _description) isAuthorized() canPropose public {
-        require(lesSession[sessionIndex].status == WorkflowStatus.ProposalsRegistrationStarted, "The status is not valid");
+    function addProposal(string calldata _description) isAuthorized() canPropose public returns(WorkflowStatus,bool,WorkflowStatus){
+       // require(lesSession[sessionIndex].status == WorkflowStatus.ProposalsRegistrationStarted, "The status is  ProposalsRegistrationStarted");
         uint lenPropositions = lesSession[sessionIndex].lesProposition.length;
         Proposal memory newProposal = Proposal(lenPropositions + 1, _description, 0, msg.sender);
         lesSession[sessionIndex].lesProposition.push(newProposal);
         emit ProposalRegistered(lesSession[sessionIndex].lesProposition.length - 1);
+         return (lesSession[sessionIndex].status, lesSession[sessionIndex].status == WorkflowStatus.ProposalsRegistrationStarted,WorkflowStatus.ProposalsRegistrationStarted);
     }
 
     function closeProposal() public onlyOwner {
-        require(lesSession[sessionIndex].status == WorkflowStatus.ProposalsRegistrationStarted, "The status is not valid");
+        require(lesSession[sessionIndex].status == WorkflowStatus.ProposalsRegistrationStarted,"status not ProposalsRegistrationStarted");
         uint lenPropositions = lesSession[sessionIndex].lesProposition.length;
         Proposal memory newProposal = Proposal(lenPropositions + 1, "Vote Blanc", 0, msg.sender);
         lesSession[sessionIndex].lesProposition.push(newProposal);
@@ -150,7 +153,7 @@ function startSession(bool _publicProposal) public onlyOwner returns (uint, Sess
     }
 
     function openVote() public onlyOwner {
-        require(lesSession[sessionIndex].status == WorkflowStatus.ProposalsRegistrationEnded, "The status is not valid");
+        require(lesSession[sessionIndex].status == WorkflowStatus.ProposalsRegistrationEnded, "The status is not ProposalsRegistrationEnded");
         emit WorkflowStatusChange(lesSession[sessionIndex].status, WorkflowStatus.VotingSessionStarted);
         lesSession[sessionIndex].status = WorkflowStatus.VotingSessionStarted;
     }

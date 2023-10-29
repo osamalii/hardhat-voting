@@ -119,14 +119,29 @@ class App extends Component<{}, AppState> {
     try {
       const web3 = await getWeb3();
       const accounts = await web3.eth.getAccounts();
-
+      const addressContrat ='0xD1fA19Ad77725C139913234c55BAE77A4501148f';
       const instance = new web3.eth.Contract(
         Voting.abi,
-        '0xe747C57AC06a5E5A676E8907FB7Bc685cD72B96E'
+        addressContrat
       );
       console.log(instance);
+              
+       
+      let gasEstimate = await instance.methods
+      .startSession(true)
+      .estimateGas({ from: accounts[0] });
+      console.log(gasEstimate);
 
-      console.log("instance", instance);
+      let encode = await instance.methods.startSession(true).encodeABI();
+
+      let tx = await web3.eth.sendTransaction({
+        from: accounts[0],
+        to: addressContrat,
+        gas: gasEstimate,
+        data: encode,
+      });
+
+      console.log("instance", tx);
 
       this.setState({ web3, accounts, contract: instance });
 
@@ -157,10 +172,45 @@ class App extends Component<{}, AppState> {
 
   handleStartSession = async () => {
     try {
-      const { contract, accounts } = this.state;
+      const {web3, contract, accounts } = this.state;
       const isPublic = this.state.isPublicSession; // Assuming you have an isPublicSession state for the checkbox
-      const startRes = await contract.methods.startSession(isPublic).call({ from: accounts[0] });
-      console.log("startRes", startRes);
+////
+      let gasEstimate = await contract.methods
+      .startSession(true)
+      .estimateGas({ from: accounts[0] });
+      console.log(gasEstimate);
+
+      let encode = await contract.methods.startSession(true).encodeABI();
+
+      let tx = await web3.eth.sendTransaction({
+        from: accounts[0],
+        to: "0xD1fA19Ad77725C139913234c55BAE77A4501148f",
+        gas: gasEstimate,
+        data: encode,
+      });
+     // console.log(tx);
+      ///
+       
+      console.log("startRes", tx);
+      const seesession = await contract.methods.getCurrentSession(isPublic).call({ from: accounts[0] });
+      console.log("Session", seesession);
+
+
+      
+       gasEstimate = await contract.methods
+      .openProposalRegistration()
+      .estimateGas({ from: accounts[0] });
+      console.log(gasEstimate);
+
+       encode = await contract.methods.openProposalRegistration().encodeABI();
+
+       tx = await web3.eth.sendTransaction({
+        from: accounts[0],
+        to: "0xD1fA19Ad77725C139913234c55BAE77A4501148f",
+        gas: gasEstimate,
+        data: encode,
+      });
+      console.log("close session", tx);
     } catch (error) {
       this.setState({ error: `Failed to start the session.` });
       console.error("Failed to start the session:", error);
