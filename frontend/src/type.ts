@@ -44,6 +44,7 @@ export interface AppState {
     results: string;
     winner: Proposal |null;
     newProposition: string;
+    newBlackListAddress:string;
     newVoterAddress: string;
     alreadyVote:boolean;
     isPublicSession: boolean;

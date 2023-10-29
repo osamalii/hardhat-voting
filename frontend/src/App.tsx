@@ -26,6 +26,7 @@ class App extends Component<{}, AppState> {
   state: AppState = {
     web3: null,
     accounts: null,
+    newBlackListAddress:"",
     contract: null,
     contractAddress:"0xA23CcBB8d0238E2d67C40654b3F3061aD456EBBB",
     userAddress: null,
@@ -160,6 +161,36 @@ class App extends Component<{}, AppState> {
       console.error("Failed to add the voter:", error);
     }
   };
+
+  handleBlackListVoter= async () => {
+    // Implement adding a voter logic
+    // newVoterAddress is the address of the voter to be added (this.state.newVoterAddress) [we can split by ',' to add multiple voters at once]
+    try {
+      const { contract, accounts, web3 } = this.state;
+      const voters = this.state.newVoterAddress.split(",");
+
+      for (let i = 0; i < voters.length; i++) {
+        const gasEstimate = await contract.methods.blacklistVoter(voters[i]).estimateGas({ from: accounts[0]});
+        const encode = await contract.methods.blacklistVoter(voters[i]).encodeABI();
+
+        const tx = await web3.eth.sendTransaction({
+          from: accounts[0],
+          to: this.state.contractAddress,
+          gas: gasEstimate,
+          data: encode,
+        });
+
+        console.log(tx);
+      }
+      
+      this.setState({newVoterAddress:""});
+    } catch (error) {
+      this.setState({ error: `Failed to add the voter.` });
+      console.error("Failed to add the voter:", error);
+    }
+  };
+
+
   handleCloseRegisterVoter= async()=>{
     try{
       const {web3, contract, accounts,contractAddress} = this.state;
@@ -323,7 +354,23 @@ class App extends Component<{}, AppState> {
   };
   handleGetResults = async () => {
     try{
-      const { contract, accounts } = this.state;
+      const { contract, accounts,web3,contractAddress } = this.state;
+      const gasEstimate = await contract.methods
+      .countVotes()
+      .estimateGas({ from: accounts[0] });
+      console.log(gasEstimate);
+
+      const encode = await contract.methods.countVotes().encodeABI();
+
+      const tx = await web3.eth.sendTransaction({
+        from: accounts[0],
+        to: contractAddress,
+        gas: gasEstimate,
+        data: encode,
+      });
+      console.log("function ", tx);
+
+      
       const resultsRes = await contract.methods.getWinner().call({ from: accounts[0] });
       console.log("resultsRes", resultsRes);
       
@@ -342,7 +389,9 @@ class App extends Component<{}, AppState> {
   handleVoterAddressChange = (e: ChangeEvent<HTMLInputElement>) => {
     this.setState({ newVoterAddress: e.target.value });
   };
-
+  handleBlackListVoterAddressChange= (e: ChangeEvent<HTMLInputElement>) => {
+    this.setState({ newBlackListAddress: e.target.value });
+  };
   handleCloseError = () => {
     this.setState({ error: null });
   };
@@ -537,6 +586,21 @@ class App extends Component<{}, AppState> {
             {this.state.isOwner && (
               <Grid item xs={12} sm={6}>
                 <Paper style={styles.paper}>
+                <TextField
+                    type="text"
+                    label="Enter voter's address"
+                    value={this.state.newBlackListAddress}
+                    onChange={this.handleBlackListVoterAddressChange}
+                  />
+                  <Button
+                    variant="contained"
+                    onClick={this.handleBlackListVoter}
+                    style={styles.button}
+                  >
+                    BlackList Voter
+                  </Button>
+                  <br/>
+
                   <TextField
                     type="text"
                     label="Enter voter's address"
@@ -548,7 +612,7 @@ class App extends Component<{}, AppState> {
                     onClick={this.handleAddVoter}
                     style={styles.button}
                   >
-                    Add Voter
+                    WhiteList Voter
                   </Button>
                   <br/>
                   <Button
@@ -626,7 +690,7 @@ class App extends Component<{}, AppState> {
                   <Typography sx={{ p: 10 }}>
                     The Propose winner is : <br/>
                     {this.state.winner.description} <br/>
-                    with: {this.state.winner.voteCount} votes <br/>
+                    with: {Number(this.state.winner.voteCount)} votes <br/>
                     from: {this.state.winner.proposerPar} <br/><br/>
                     {this.state.isOwner ? (
                       <>
