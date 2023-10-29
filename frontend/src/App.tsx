@@ -17,7 +17,7 @@ import {
   Alert,
 } from "@mui/material";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
-import { Proposal, WorkflowStatus } from "./type";
+import { AppState, Proposal, WorkflowStatus } from "./types";
 import {styles}from "./style";
 import { Uint } from "web3";
 
@@ -25,10 +25,10 @@ import { Uint } from "web3";
 class App extends Component<{}, AppState> {
   state: AppState = {
     web3: null,
-    accounts: null,
+    accounts: [""],
     newBlackListAddress:"",
     contract: null,
-    contractAddress:"0xD77eBd94A69eB0F650f99a7De11fB4B20db8747d",
+    contractAddress:"0x25FD062154ba346f9768c9BFADCa656234e5BfA5",
     userAddress: null,
     isOwner: false,
     sessionStatus: WorkflowStatus.Notstart,
@@ -48,7 +48,7 @@ class App extends Component<{}, AppState> {
   async componentDidMount() {
     try {
       const web3 = await getWeb3();
-      const accounts = await web3.eth.getAccounts();
+      const accounts = await web3.eth.getAccounts() || [""];
       const instance = new web3.eth.Contract(
         Voting.abi,
         this.state.contractAddress
@@ -58,13 +58,13 @@ class App extends Component<{}, AppState> {
 
       this.setState({ web3, accounts, contract: instance });
 
-      const account = this.state.accounts ? this.state.accounts[0] : null;
+      const account = this.state.accounts ? this.state.accounts[0] : "";
 
       this.setState({
         userAddress: account ? `${account.slice(0, 6)}...${account.slice(38, 42)}` : null,
       });
 
-      const owner = await instance.methods.owner().call();
+      const owner: string = await instance.methods.owner().call();
 
       if (account === owner) {
         this.setState({

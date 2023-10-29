@@ -9,8 +9,8 @@ task("accounts", "Prints the list of accounts", async (args, hre) => {
 });
 
 const INFURA_API_KEY = "2a95b3531d9542e2af242d271ae3cd9d";
-//const SEPOLIA_PRIVATE_KEY = "8570e5ba96d96cf555e3172b3c793b90a5455062a7de7fcfa8b7b285f1688fce";
-const SEPOLIA_PRIVATE_KEY = "3ad644376181b72b79dfac64e81dcec27a510cb98a4740f05cf4058c42a71bf7";
+const SEPOLIA_PRIVATE_KEY = "8570e5ba96d96cf555e3172b3c793b90a5455062a7de7fcfa8b7b285f1688fce";
+// const SEPOLIA_PRIVATE_KEY = "3ad644376181b72b79dfac64e81dcec27a510cb98a4740f05cf4058c42a71bf7";
 // Go to https://hardhat.org/config/ to learn more
 
 /**

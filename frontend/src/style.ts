@@ -1,5 +1,7 @@
-export const styles = {
-    root: {
+import { CSSProperties } from 'react';
+
+export const styles: { [key: string]: CSSProperties } = {   
+   root: {
       display: "flex",
       flexDirection: "column",
       minHeight: "100vh",
@@ -44,9 +46,7 @@ export const styles = {
       margin: "10px",
       cursor: "pointer",
       transition: "background-color 0.3s",
-      "&:hover": {
-        background: "#1565c0",
-      },
+    
     },
     paper: {
       padding: "20px",

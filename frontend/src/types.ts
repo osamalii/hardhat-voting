@@ -32,7 +32,7 @@ export interface  SessionData {
   
 export interface AppState {
     web3: any;
-    accounts: string[] | null;
+    accounts: string[];
     contract: any;
     contractAddress:string;
     userAddress: string | null;
