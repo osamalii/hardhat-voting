@@ -83,7 +83,7 @@ interface AppState {
   web3: any;
   accounts: string[] | null;
   contract: any;
-  addressContrat:string;
+  contractAddress:string;
   userAddress: string | null;
   isOwner: boolean;
   sessionStatus: WorkflowStatus;
@@ -103,7 +103,7 @@ class App extends Component<{}, AppState> {
     web3: null,
     accounts: null,
     contract: null,
-    addressContrat:"0xA23CcBB8d0238E2d67C40654b3F3061aD456EBBB",
+    contractAddress:"0xA23CcBB8d0238E2d67C40654b3F3061aD456EBBB",
     userAddress: null,
     isOwner: false,
     sessionStatus: WorkflowStatus.Notstart,
@@ -125,7 +125,7 @@ class App extends Component<{}, AppState> {
       const accounts = await web3.eth.getAccounts();
       const instance = new web3.eth.Contract(
         Voting.abi,
-        this.state.addressContrat
+        this.state.contractAddress
       );
       console.log(instance);
               
@@ -160,7 +160,7 @@ class App extends Component<{}, AppState> {
 
   handleStartSession = async () => {
     try {
-      const {web3, contract, accounts,addressContrat,isPublicSession} = this.state;
+      const {web3, contract, accounts,contractAddress,isPublicSession} = this.state;
       const gasEstimate = await contract.methods
       .startSession(isPublicSession)
       .estimateGas({ from: accounts[0] });
@@ -170,7 +170,7 @@ class App extends Component<{}, AppState> {
 
       const tx = await web3.eth.sendTransaction({
         from: accounts[0],
-        to: addressContrat,
+        to: contractAddress,
         gas: gasEstimate,
         data: encode,
       });
@@ -183,7 +183,7 @@ class App extends Component<{}, AppState> {
   };
   handleCloseRegisterVoter= async()=>{
     try{
-      const {web3, contract, accounts,addressContrat} = this.state;
+      const {web3, contract, accounts,contractAddress} = this.state;
       const gasEstimate = await contract.methods
       .closeRegisteringVoters()
       .estimateGas({ from: accounts[0] });
@@ -193,7 +193,7 @@ class App extends Component<{}, AppState> {
 
       const tx = await web3.eth.sendTransaction({
         from: accounts[0],
-        to: addressContrat,
+        to: contractAddress,
         gas: gasEstimate,
         data: encode,
       });
@@ -208,7 +208,7 @@ class App extends Component<{}, AppState> {
   handleAddProposition = async () => {
     // Implement adding a proposition logic
     try{
-      const {web3, contract, accounts,addressContrat,newProposition} = this.state;
+      const {web3, contract, accounts,contractAddress,newProposition} = this.state;
       const gasEstimate = await contract.methods
       .addProposal(newProposition)
       .estimateGas({ from: accounts[0] });
@@ -218,20 +218,20 @@ class App extends Component<{}, AppState> {
 
       const tx = await web3.eth.sendTransaction({
         from: accounts[0],
-        to: addressContrat,
+        to: contractAddress,
         gas: gasEstimate,
         data: encode,
       });
       console.log("function ", tx);
       this.state.newProposition="";
     } catch (error) {
-      this.setState({ error: `Failed to Add proposal.` });
-      console.error("Failed to Add proposal:", error);
+      this.setState({ error: `Failed to Add the proposition.` });
+      console.error("Failed to Add the proposition:", error);
     }
   };
   handleCloseRegisterProposals= async()=>{
     try{
-      const {web3, contract, accounts,addressContrat} = this.state;
+      const {web3, contract, accounts,contractAddress} = this.state;
       const gasEstimate = await contract.methods
       .closeProposal()
       .estimateGas({ from: accounts[0] });
@@ -241,7 +241,7 @@ class App extends Component<{}, AppState> {
 
       const tx = await web3.eth.sendTransaction({
         from: accounts[0],
-        to: addressContrat,
+        to: contractAddress,
         gas: gasEstimate,
         data: encode,
       });
@@ -257,13 +257,23 @@ class App extends Component<{}, AppState> {
     // Implement adding a voter logic
     // newVoterAddress is the address of the voter to be added (this.state.newVoterAddress) [we can split by ',' to add multiple voters at once]
     try {
-      const { contract, accounts } = this.state;
+      const { contract, accounts, web3 } = this.state;
       const voters = this.state.newVoterAddress.split(",");
+
       for (let i = 0; i < voters.length; i++) {
-        console.log("adding voter", voters[i]);
-        const voterRes = await contract.methods.addVoter(voters[i]).call({ from: accounts[0] });
-        console.log("voterRes", voterRes);
+        const gasEstimate = await contract.methods.addVoter(voters[i]).estimateGas({ from: accounts[0]});
+        const encode = await contract.methods.addVoter(voters[i]).encodeABI();
+
+        const tx = await web3.eth.sendTransaction({
+          from: accounts[0],
+          to: this.state.contractAddress,
+          gas: gasEstimate,
+          data: encode,
+        });
+
+        console.log(tx);
       }
+      this.state.newVoterAddress="";
     } catch (error) {
       this.setState({ error: `Failed to add the voter.` });
       console.error("Failed to add the voter:", error);
@@ -272,11 +282,20 @@ class App extends Component<{}, AppState> {
 
   handleOpenVote = async () => {
     // Implement opening the vote session logic
-    try{
-      const { contract, accounts } = this.state;
-      const openRes = await contract.methods.openVote().call({ from: accounts[0] });
-      console.log("openRes", openRes);
-    }catch (error) {
+    try {
+      const { contract, accounts, web3 } = this.state;
+      const gasEstimate = await contract.methods.openVote().estimateGas({ from: accounts[0]});
+      const encode = await contract.methods.openVote().encodeABI();
+
+      const tx = await web3.eth.sendTransaction({
+        from: accounts[0],
+        to: this.state.contractAddress,
+        gas: gasEstimate,
+        data: encode,
+      });
+
+      console.log(tx);
+    } catch (error) {
       this.setState({ error: `Failed to open the vote.` });
       console.error("Failed to open the vote:", error);
     }
@@ -284,11 +303,20 @@ class App extends Component<{}, AppState> {
 
   handleCloseVote = async () => {
     // Implement closing the vote session logic
-    try{
-      const { contract, accounts } = this.state;
-      const closeRes = await contract.methods.closeVote().call({ from: accounts[0] });
-      console.log("closeRes", closeRes);
-    }catch (error) {
+    try {
+      const { contract, accounts, web3 } = this.state;
+      const gasEstimate = await contract.methods.closeVote().estimateGas({ from: accounts[0]});
+      const encode = await contract.methods.closeVote().encodeABI();
+
+      const tx = await web3.eth.sendTransaction({
+        from: accounts[0],
+        to: this.state.contractAddress,
+        gas: gasEstimate,
+        data: encode,
+      });
+
+      console.log(tx);
+    } catch (error) {
       this.setState({ error: `Failed to close the vote.` });
       console.error("Failed to close the vote:", error);
     }
@@ -374,13 +402,7 @@ class App extends Component<{}, AppState> {
 
                 
                 
-                    <Button
-                      variant="contained"
-                      onClick={this.handleCloseRegisterProposals}
-                      style={styles.button}
-                    >
-                      Close Register Proposals  
-                    </Button>
+                    
                   
                     <TextField
                       type="text"
@@ -394,6 +416,14 @@ class App extends Component<{}, AppState> {
                       style={styles.button}
                     >
                       Add Admin Proposition
+                    </Button>
+
+                    <Button
+                      variant="contained"
+                      onClick={this.handleCloseRegisterProposals}
+                      style={styles.button}
+                    >
+                      Close Register Proposals  
                     </Button>
                   
                   </div>
